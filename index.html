@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Haunted Gallery Heist</title>
+    <link rel="stylesheet" href="styles.css">
+
+    <!--
+    HOW TO RUN LOCALLY:
+    1. Open this index.html directly in a browser (Chrome recommended for best compatibility)
+    2. Or serve via local server: python3 -m http.server 8000
+    3. Then open http://localhost:8000
+
+    HOW TO DEPLOY TO NETLIFY:
+    1. Create a new site on Netlify
+    2. Drag and drop this entire folder (containing index.html, styles.css, main.js)
+    3. Or connect to a Git repository and deploy
+    4. No build commands needed - it's a static site
+    5. The game will be live at your Netlify URL
+
+    CONTROLS:
+    - Touch/Click and drag anywhere to move your thief
+    - Release to stop
+    - Collect loot and bring it to the van (bottom-left area)
+    - Avoid spotlights and ghosts!
+    -->
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <!-- Phaser 3 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+
+    <!-- Game Code -->
+    <script src="main.js"></script>
+</body>
+</html>
