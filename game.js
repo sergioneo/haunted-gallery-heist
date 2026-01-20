@@ -82,6 +82,7 @@ class SnowballGame {
         this.clock = new THREE.Clock();
         this.snowballs = [];
         this.aiSnowballs = [];
+        this.explosions = [];  // Track active explosions
 
         this.animate();
     }
@@ -99,7 +100,10 @@ class SnowballGame {
 
         // Scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0xB8D8E8); // Winter sky
+
+        // Create skybox
+        this.createSkybox();
+
         this.scene.fog = new THREE.Fog(0xD0E8F0, 60, 120);
 
         // Camera (First Person)
@@ -147,6 +151,45 @@ class SnowballGame {
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
+    }
+
+    createSkybox() {
+        // Create a gradient skybox for winter atmosphere
+        const vertexShader = `
+            varying vec3 vWorldPosition;
+            void main() {
+                vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                vWorldPosition = worldPosition.xyz;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            varying vec3 vWorldPosition;
+            void main() {
+                // Create gradient from horizon to sky
+                float h = normalize(vWorldPosition).y;
+
+                // Winter sky colors
+                vec3 skyTop = vec3(0.4, 0.6, 0.9);      // Bright winter blue
+                vec3 skyHorizon = vec3(0.8, 0.9, 1.0);  // Light blue-white
+
+                // Mix based on height
+                vec3 skyColor = mix(skyHorizon, skyTop, max(h, 0.0));
+
+                gl_FragColor = vec4(skyColor, 1.0);
+            }
+        `;
+
+        const skyGeo = new THREE.SphereGeometry(500, 32, 15);
+        const skyMat = new THREE.ShaderMaterial({
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
+            side: THREE.BackSide
+        });
+
+        const sky = new THREE.Mesh(skyGeo, skyMat);
+        this.scene.add(sky);
     }
 
     initScene() {
@@ -961,6 +1004,44 @@ class SnowballGame {
         };
     }
 
+    createExplosion(position, size = 1) {
+        // Create particle explosion effect
+        const particleCount = 15;
+        const particles = [];
+
+        for (let i = 0; i < particleCount; i++) {
+            const particleGeometry = new THREE.SphereGeometry(0.08 * size, 4, 4);
+            const particleMaterial = new THREE.MeshBasicMaterial({
+                color: 0xFFFFFF,
+                transparent: true,
+                opacity: 1
+            });
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+
+            // Random direction
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.random() * Math.PI;
+            const speed = 2 + Math.random() * 3;
+
+            particle.position.copy(position);
+            particle.userData.velocity = new THREE.Vector3(
+                Math.sin(phi) * Math.cos(theta) * speed,
+                Math.sin(phi) * Math.sin(theta) * speed,
+                Math.cos(phi) * speed
+            );
+
+            this.scene.add(particle);
+            particles.push(particle);
+        }
+
+        // Add to explosions list with lifetime
+        this.explosions.push({
+            particles: particles,
+            lifetime: 0.5,
+            age: 0
+        });
+    }
+
     updatePlayer(delta) {
         if (!this.state.gameStarted || this.state.gameOver) return;
 
@@ -1170,6 +1251,7 @@ class SnowballGame {
 
             // Check collision with obstacles
             if (this.checkSnowballObstacleCollision(snowball.mesh.position)) {
+                this.createExplosion(snowball.mesh.position, 0.8);
                 this.scene.remove(snowball.mesh);
                 this.snowballs.splice(i, 1);
                 continue;
@@ -1179,7 +1261,7 @@ class SnowballGame {
             const distToAI = snowball.mesh.position.distanceTo(this.ai.position);
             if (distToAI < 1) {
                 this.state.addPlayerScore();
-                // Removed distracting message - score updates in HUD
+                this.createExplosion(snowball.mesh.position, 1.2);
                 this.scene.remove(snowball.mesh);
                 this.snowballs.splice(i, 1);
                 this.updateUI();
@@ -1209,6 +1291,7 @@ class SnowballGame {
 
             // Check collision with obstacles
             if (this.checkSnowballObstacleCollision(snowball.mesh.position)) {
+                this.createExplosion(snowball.mesh.position, 0.8);
                 this.scene.remove(snowball.mesh);
                 this.aiSnowballs.splice(i, 1);
                 continue;
@@ -1220,7 +1303,7 @@ class SnowballGame {
             );
             if (distToPlayer < 1) {
                 this.state.addAIScore();
-                // Removed distracting message - score updates in HUD
+                this.createExplosion(snowball.mesh.position, 1.2);
                 this.scene.remove(snowball.mesh);
                 this.aiSnowballs.splice(i, 1);
                 this.updateUI();
@@ -1235,6 +1318,39 @@ class SnowballGame {
                 Math.abs(snowball.mesh.position.z) > 50 || snowball.mesh.position.y < 0) {
                 this.scene.remove(snowball.mesh);
                 this.aiSnowballs.splice(i, 1);
+            }
+        }
+    }
+
+    updateExplosions(delta) {
+        for (let i = this.explosions.length - 1; i >= 0; i--) {
+            const explosion = this.explosions[i];
+            explosion.age += delta;
+
+            // Update each particle
+            for (const particle of explosion.particles) {
+                // Move particle
+                particle.position.add(
+                    particle.userData.velocity.clone().multiplyScalar(delta)
+                );
+
+                // Apply gravity
+                particle.userData.velocity.y -= 9.8 * delta;
+
+                // Fade out
+                const progress = explosion.age / explosion.lifetime;
+                particle.material.opacity = 1 - progress;
+                particle.scale.setScalar(1 - progress * 0.5);
+            }
+
+            // Remove explosion when done
+            if (explosion.age >= explosion.lifetime) {
+                for (const particle of explosion.particles) {
+                    this.scene.remove(particle);
+                    particle.geometry.dispose();
+                    particle.material.dispose();
+                }
+                this.explosions.splice(i, 1);
             }
         }
     }
@@ -1298,6 +1414,16 @@ class SnowballGame {
         this.snowballs = [];
         this.aiSnowballs = [];
 
+        // Clear explosions
+        for (const explosion of this.explosions) {
+            for (const particle of explosion.particles) {
+                this.scene.remove(particle);
+                particle.geometry.dispose();
+                particle.material.dispose();
+            }
+        }
+        this.explosions = [];
+
         this.updateUI();
     }
 
@@ -1311,6 +1437,9 @@ class SnowballGame {
             this.updateAI(delta);
             this.updateSnowballs(delta);
         }
+
+        // Always update explosions even if game is paused
+        this.updateExplosions(delta);
 
         this.renderer.render(this.scene, this.camera);
     }
