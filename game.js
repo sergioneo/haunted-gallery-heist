@@ -99,8 +99,8 @@ class SnowballGame {
 
         // Scene
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x87CEEB); // Sky blue
-        this.scene.fog = new THREE.Fog(0x87CEEB, 50, 100);
+        this.scene.background = new THREE.Color(0xB8D8E8); // Winter sky
+        this.scene.fog = new THREE.Fog(0xD0E8F0, 60, 120);
 
         // Camera (First Person)
         this.camera = new THREE.PerspectiveCamera(
@@ -115,11 +115,12 @@ class SnowballGame {
         this.playerPosition = new THREE.Vector3(0, 0, 0);
         this.cameraRotation = { yaw: 0, pitch: 0 };
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // Lighting - winter atmosphere
+        const ambientLight = new THREE.AmbientLight(0xE8F4FF, 0.7);  // Cool blue-white ambient
         this.scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffffee, 0.8);
+        // Main sun light (winter sun)
+        const sunLight = new THREE.DirectionalLight(0xFFFFF0, 0.9);
         sunLight.position.set(20, 30, 10);
         sunLight.castShadow = true;
         sunLight.shadow.camera.left = -40;
@@ -128,7 +129,17 @@ class SnowballGame {
         sunLight.shadow.camera.bottom = -40;
         sunLight.shadow.mapSize.width = 2048;
         sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.bias = -0.0001;
         this.scene.add(sunLight);
+
+        // Add a subtle fill light from the opposite side
+        const fillLight = new THREE.DirectionalLight(0xB8D8FF, 0.3);
+        fillLight.position.set(-15, 15, -10);
+        this.scene.add(fillLight);
+
+        // Add a subtle sky light from above
+        const skyLight = new THREE.HemisphereLight(0xE0F0FF, 0xC0D8E8, 0.4);
+        this.scene.add(skyLight);
 
         // Resize handler
         window.addEventListener('resize', () => {
@@ -139,18 +150,38 @@ class SnowballGame {
     }
 
     initScene() {
-        // Ground
-        const groundGeometry = new THREE.PlaneGeometry(100, 100);
+        // Create multi-layered ground with different surfaces
+
+        // Base ground layer - snowy field with gradient
+        const groundGeometry = new THREE.PlaneGeometry(100, 100, 10, 10);
+        const groundVertices = groundGeometry.attributes.position;
+
+        // Add gentle height variations to the ground
+        for (let i = 0; i < groundVertices.count; i++) {
+            const x = groundVertices.getX(i);
+            const z = groundVertices.getY(i);
+            const height = Math.sin(x * 0.1) * 0.3 + Math.cos(z * 0.1) * 0.3;
+            groundVertices.setZ(i, height);
+        }
+        groundGeometry.computeVertexNormals();
+
         const groundMaterial = new THREE.MeshStandardMaterial({
-            color: 0x90EE90,
-            roughness: 0.8
+            color: 0xF0F8FF,  // Alice blue - snowy white
+            roughness: 0.9,
+            metalness: 0.1
         });
         this.ground = new THREE.Mesh(groundGeometry, groundMaterial);
         this.ground.rotation.x = -Math.PI / 2;
         this.ground.receiveShadow = true;
         this.scene.add(this.ground);
 
-        // Snow patches (where you can roll snowballs)
+        // Add dirt/grass patches for variety
+        this.createDirtPatches();
+
+        // Add ice patches (slippery-looking areas)
+        this.createIcePatches();
+
+        // Snow patches (where you can roll snowballs) - elevated and visible
         this.snowPatches = [];
         const snowPositions = [
             { x: 5, z: 5 },
@@ -162,16 +193,49 @@ class SnowballGame {
         ];
 
         snowPositions.forEach(pos => {
-            const snowGeometry = new THREE.CircleGeometry(2.5, 32);
-            const snowMaterial = new THREE.MeshStandardMaterial({
+            // Create a mound of snow (elevated)
+            const moundGeometry = new THREE.CylinderGeometry(2.5, 3, 0.4, 32);
+            const moundMaterial = new THREE.MeshStandardMaterial({
                 color: 0xFFFFFF,
-                roughness: 0.9
+                roughness: 0.95,
+                metalness: 0
             });
-            const snow = new THREE.Mesh(snowGeometry, snowMaterial);
-            snow.rotation.x = -Math.PI / 2;
-            snow.position.set(pos.x, 0.01, pos.z);
-            snow.receiveShadow = true;
-            this.scene.add(snow);
+            const mound = new THREE.Mesh(moundGeometry, moundMaterial);
+            mound.position.set(pos.x, 0.2, pos.z);
+            mound.castShadow = true;
+            mound.receiveShadow = true;
+            this.scene.add(mound);
+
+            // Add sparkly top layer
+            const topGeometry = new THREE.CircleGeometry(2.3, 32);
+            const topMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                roughness: 0.3,
+                metalness: 0.4,
+                emissive: 0xEEEEFF,
+                emissiveIntensity: 0.1
+            });
+            const top = new THREE.Mesh(topGeometry, topMaterial);
+            top.rotation.x = -Math.PI / 2;
+            top.position.set(pos.x, 0.41, pos.z);
+            this.scene.add(top);
+
+            // Add small snowballs on the mound for detail
+            for (let i = 0; i < 5; i++) {
+                const smallSnowball = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.1 + Math.random() * 0.1, 8, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xFFFFFF })
+                );
+                const angle = (i / 5) * Math.PI * 2;
+                const radius = 1.5 + Math.random() * 0.8;
+                smallSnowball.position.set(
+                    pos.x + Math.cos(angle) * radius,
+                    0.3,
+                    pos.z + Math.sin(angle) * radius
+                );
+                this.scene.add(smallSnowball);
+            }
+
             this.snowPatches.push(new THREE.Vector3(pos.x, 0, pos.z));
         });
 
@@ -190,6 +254,9 @@ class SnowballGame {
         this.createTree(12, -18);
         this.createTree(-15, -18);
 
+        // Add decorative snow piles around the map
+        this.createSnowPiles();
+
         // Walls (invisible boundaries)
         this.boundaries = [
             { min: new THREE.Vector3(-48, 0, -48), max: new THREE.Vector3(48, 10, 48) }
@@ -199,52 +266,231 @@ class SnowballGame {
         this.createAI();
     }
 
+    createDirtPatches() {
+        // Add brown/gray dirt patches for visual variety
+        const dirtPositions = [
+            { x: -20, z: 10, size: 4 },
+            { x: 15, z: 18, size: 3 },
+            { x: -5, z: -15, size: 3.5 },
+            { x: 18, z: -12, size: 2.5 }
+        ];
+
+        dirtPositions.forEach(pos => {
+            const geometry = new THREE.CircleGeometry(pos.size, 32);
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x8B7355,  // Brown-gray dirt
+                roughness: 1.0
+            });
+            const patch = new THREE.Mesh(geometry, material);
+            patch.rotation.x = -Math.PI / 2;
+            patch.position.set(pos.x, 0.02, pos.z);
+            patch.receiveShadow = true;
+            this.scene.add(patch);
+        });
+    }
+
+    createIcePatches() {
+        // Add shiny ice patches with gradient effect
+        const icePositions = [
+            { x: -15, z: 5, size: 3 },
+            { x: 10, z: -8, size: 2.5 },
+            { x: -8, z: -18, size: 3.5 },
+            { x: 20, z: 8, size: 2 }
+        ];
+
+        icePositions.forEach(pos => {
+            const geometry = new THREE.CircleGeometry(pos.size, 32);
+            const material = new THREE.MeshStandardMaterial({
+                color: 0xC0E0FF,  // Light blue ice
+                roughness: 0.1,
+                metalness: 0.6,
+                emissive: 0x4080FF,
+                emissiveIntensity: 0.05
+            });
+            const patch = new THREE.Mesh(geometry, material);
+            patch.rotation.x = -Math.PI / 2;
+            patch.position.set(pos.x, 0.03, pos.z);
+            patch.receiveShadow = true;
+            this.scene.add(patch);
+        });
+    }
+
+    createSnowPiles() {
+        // Add decorative snow piles scattered around the map
+        const pilePositions = [
+            { x: -22, z: -5, size: 1 },
+            { x: 16, z: 3, size: 0.8 },
+            { x: -3, z: 18, size: 1.2 },
+            { x: 22, z: -15, size: 0.9 },
+            { x: -18, z: 20, size: 1.1 },
+            { x: 6, z: -20, size: 0.7 },
+            { x: -25, z: -20, size: 1.3 },
+            { x: 25, z: 20, size: 1 }
+        ];
+
+        pilePositions.forEach(pos => {
+            // Main pile
+            const pileGeometry = new THREE.SphereGeometry(pos.size, 12, 12);
+            const pileMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                roughness: 0.9
+            });
+            const pile = new THREE.Mesh(pileGeometry, pileMaterial);
+            pile.position.set(pos.x, pos.size * 0.5, pos.z);
+            pile.scale.y = 0.6;
+            pile.castShadow = true;
+            pile.receiveShadow = true;
+            this.scene.add(pile);
+
+            // Add some smaller piles around for detail
+            for (let i = 0; i < 3; i++) {
+                const angle = (i / 3) * Math.PI * 2;
+                const radius = pos.size * 1.2;
+                const smallPile = new THREE.Mesh(
+                    new THREE.SphereGeometry(pos.size * 0.4, 8, 8),
+                    pileMaterial
+                );
+                smallPile.position.set(
+                    pos.x + Math.cos(angle) * radius,
+                    pos.size * 0.2,
+                    pos.z + Math.sin(angle) * radius
+                );
+                smallPile.scale.y = 0.5;
+                this.scene.add(smallPile);
+            }
+        });
+    }
+
     createHouse(x, z) {
+        // Foundation/base
+        const foundationGeometry = new THREE.BoxGeometry(8.5, 0.5, 8.5);
+        const foundationMaterial = new THREE.MeshStandardMaterial({ color: 0x5A5A5A });
+        const foundation = new THREE.Mesh(foundationGeometry, foundationMaterial);
+        foundation.position.set(x, 0.25, z);
+        foundation.receiveShadow = true;
+        this.scene.add(foundation);
+
         // Main house body
         const houseGeometry = new THREE.BoxGeometry(8, 5, 8);
-        const houseMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        const houseMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B4513,
+            roughness: 0.8
+        });
         const house = new THREE.Mesh(houseGeometry, houseMaterial);
-        house.position.set(x, 2.5, z);
+        house.position.set(x, 3, z);
         house.castShadow = true;
         house.receiveShadow = true;
         this.scene.add(house);
 
-        // Roof
+        // Roof with snow
         const roofGeometry = new THREE.ConeGeometry(6, 3, 4);
-        const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
+        const roofMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B0000,
+            roughness: 0.7
+        });
         const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-        roof.position.set(x, 6.5, z);
+        roof.position.set(x, 7, z);
         roof.rotation.y = Math.PI / 4;
         roof.castShadow = true;
+        roof.receiveShadow = true;
         this.scene.add(roof);
 
+        // Snow on roof
+        const roofSnowGeometry = new THREE.ConeGeometry(6.2, 0.8, 4);
+        const roofSnowMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            roughness: 0.9
+        });
+        const roofSnow = new THREE.Mesh(roofSnowGeometry, roofSnowMaterial);
+        roofSnow.position.set(x, 8.6, z);
+        roofSnow.rotation.y = Math.PI / 4;
+        this.scene.add(roofSnow);
+
         // Door
-        const doorGeometry = new THREE.BoxGeometry(1.5, 3, 0.2);
-        const doorMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
+        const doorGeometry = new THREE.BoxGeometry(1.5, 3, 0.3);
+        const doorMaterial = new THREE.MeshStandardMaterial({
+            color: 0x654321,
+            roughness: 0.9
+        });
         const door = new THREE.Mesh(doorGeometry, doorMaterial);
-        door.position.set(x, 1.5, z + 4);
+        door.position.set(x, 2, z + 4.1);
+        door.castShadow = true;
         this.scene.add(door);
 
-        // Windows
-        const windowGeometry = new THREE.BoxGeometry(1.2, 1.2, 0.2);
-        const windowMaterial = new THREE.MeshStandardMaterial({ color: 0x87CEEB });
+        // Door handle
+        const handleGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+        const handleMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFD700,
+            metalness: 0.8,
+            roughness: 0.2
+        });
+        const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+        handle.position.set(x + 0.5, 2, z + 4.2);
+        this.scene.add(handle);
+
+        // Windows with frames
+        const windowGeometry = new THREE.BoxGeometry(1.2, 1.2, 0.15);
+        const windowMaterial = new THREE.MeshStandardMaterial({
+            color: 0x87CEEB,
+            metalness: 0.5,
+            roughness: 0.1,
+            emissive: 0x4080A0,
+            emissiveIntensity: 0.2
+        });
 
         const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
-        window1.position.set(x - 2.5, 3, z + 4);
+        window1.position.set(x - 2.5, 3.5, z + 4.05);
         this.scene.add(window1);
 
         const window2 = new THREE.Mesh(windowGeometry, windowMaterial);
-        window2.position.set(x + 2.5, 3, z + 4);
+        window2.position.set(x + 2.5, 3.5, z + 4.05);
         this.scene.add(window2);
+
+        // Window frames
+        const frameGeometry = new THREE.BoxGeometry(1.3, 1.3, 0.1);
+        const frameMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+
+        const frame1 = new THREE.Mesh(frameGeometry, frameMaterial);
+        frame1.position.set(x - 2.5, 3.5, z + 4);
+        this.scene.add(frame1);
+
+        const frame2 = new THREE.Mesh(frameGeometry, frameMaterial);
+        frame2.position.set(x + 2.5, 3.5, z + 4);
+        this.scene.add(frame2);
+
+        // Chimney with smoke suggestion
+        const chimneyGeometry = new THREE.BoxGeometry(0.8, 2, 0.8);
+        const chimneyMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        const chimney = new THREE.Mesh(chimneyGeometry, chimneyMaterial);
+        chimney.position.set(x + 2, 9.5, z - 2);
+        chimney.castShadow = true;
+        this.scene.add(chimney);
+
+        // Snow drifts around house
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const radius = 4.5 + Math.random() * 0.5;
+            const driftGeometry = new THREE.SphereGeometry(0.3 + Math.random() * 0.2, 8, 8);
+            const driftMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+            const drift = new THREE.Mesh(driftGeometry, driftMaterial);
+            drift.position.set(
+                x + Math.cos(angle) * radius,
+                0.15,
+                z + Math.sin(angle) * radius
+            );
+            drift.scale.y = 0.5;
+            this.scene.add(drift);
+        }
 
         // Add collision for house
         this.houseCollision = {
-            min: new THREE.Vector3(x - 4, 0, z - 4),
-            max: new THREE.Vector3(x + 4, 5, z + 4)
+            min: new THREE.Vector3(x - 4.5, 0, z - 4.5),
+            max: new THREE.Vector3(x + 4.5, 9, z + 4.5)
         };
     }
 
     createBush(x, z, color) {
+        // Base bush
         const bushGeometry = new THREE.SphereGeometry(1.5, 8, 8);
         const bushMaterial = new THREE.MeshStandardMaterial({
             color: color,
@@ -254,25 +500,69 @@ class SnowballGame {
         bush.position.set(x, 1, z);
         bush.scale.y = 0.8;
         bush.castShadow = true;
+        bush.receiveShadow = true;
         this.scene.add(bush);
+
+        // Snow cap on bush
+        const snowCapGeometry = new THREE.SphereGeometry(1.6, 8, 8);
+        const snowCapMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            roughness: 0.9
+        });
+        const snowCap = new THREE.Mesh(snowCapGeometry, snowCapMaterial);
+        snowCap.position.set(x, 1.5, z);
+        snowCap.scale.set(1, 0.3, 1);
+        this.scene.add(snowCap);
     }
 
     createTree(x, z) {
-        // Trunk
-        const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.6, 4, 8);
-        const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        // Trunk with texture variation
+        const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.7, 5, 8);
+        const trunkMaterial = new THREE.MeshStandardMaterial({
+            color: 0x6B4423,
+            roughness: 1.0
+        });
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.set(x, 2, z);
+        trunk.position.set(x, 2.5, z);
         trunk.castShadow = true;
+        trunk.receiveShadow = true;
         this.scene.add(trunk);
 
-        // Foliage
-        const foliageGeometry = new THREE.ConeGeometry(2.5, 5, 8);
-        const foliageMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
-        const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
-        foliage.position.set(x, 6, z);
-        foliage.castShadow = true;
-        this.scene.add(foliage);
+        // Multi-layer pine foliage (3 tiers)
+        const foliageColors = [0x1a5a1a, 0x228B22, 0x2d692d];
+
+        for (let i = 0; i < 3; i++) {
+            const foliageGeometry = new THREE.ConeGeometry(2.8 - i * 0.6, 2.5, 8);
+            const foliageMaterial = new THREE.MeshStandardMaterial({
+                color: foliageColors[i],
+                roughness: 0.9
+            });
+            const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+            foliage.position.set(x, 5.5 + i * 1.5, z);
+            foliage.castShadow = true;
+            foliage.receiveShadow = true;
+            this.scene.add(foliage);
+
+            // Snow on each tier
+            const snowGeometry = new THREE.ConeGeometry(2.9 - i * 0.6, 0.3, 8);
+            const snowMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                roughness: 0.9
+            });
+            const snow = new THREE.Mesh(snowGeometry, snowMaterial);
+            snow.position.set(x, 6.6 + i * 1.5, z);
+            this.scene.add(snow);
+        }
+
+        // Tree top (star point)
+        const topGeometry = new THREE.ConeGeometry(0.3, 1, 8);
+        const topMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1a5a1a
+        });
+        const top = new THREE.Mesh(topGeometry, topMaterial);
+        top.position.set(x, 10, z);
+        top.castShadow = true;
+        this.scene.add(top);
     }
 
     createAI() {
