@@ -1,50 +1,57 @@
-# 🎮 Haunted Gallery Heist
+# ❄️ Snowball Showdown 3D
 
-A mobile-first stealth heist game built with Phaser 3. Steal valuable loot from a haunted art gallery while avoiding spotlights and ghosts!
+A first-person 3D snowball shooter game built with Three.js. Battle against an AI opponent in a snowy backyard - first to 10 hits wins!
 
-## 🎯 Game Overview
+## 🎮 Game Overview
 
-You're a master thief breaking into a haunted gallery. You have exactly **60 seconds** to steal as much loot as possible and extract it to your van. But beware - the gallery is protected by rotating spotlights and patrolling ghosts!
+Experience an epic snowball fight in full 3D! Navigate a backyard with a house, trees, and bushes. Find snow patches to roll snowballs, then take aim at your AI opponent. But watch out - they're shooting back!
 
 ### Features
-- **Mobile-first touch controls** - Drag anywhere to move
-- **Dynamic difficulty** - Threats intensify over time
-- **Score multiplier system** - Chain extractions for massive bonuses
-- **8 unique layouts** - Randomized each run
-- **Persistent stats** - Track your best scores, perfect stealth runs, and extraction streaks
-- **60-second rounds** - Fast, replayable sessions
+- **Full 3D Graphics** - Built with Three.js for smooth 3D rendering
+- **First-Person POV** - Immersive camera perspective
+- **Mobile-Optimized Controls** - Virtual joystick + on-screen buttons
+- **AI Opponent** - Intelligent enemy that collects snow and shoots at you
+- **Interactive Environment** - House, trees, bushes, and snow patches
+- **Score to Win** - First player to 10 hits wins the match
+- **Instant Restart** - Jump right back into the action
 
 ## 🕹️ How to Play
 
 ### Controls
-- **Drag** anywhere on screen to move your thief
-- **Release** to stop moving
-- Walk over loot to pick it up
-- Bring loot to the green **VAN EXIT** zone (bottom-left) to score
+- **Left Joystick** - Move your character (forward, backward, left, right)
+- **Drag Screen** - Look around (aim your shots)
+- **ROLL SNOWBALL** - Collect snow when near white snow patches
+- **THROW** - Launch your snowball at the AI opponent
 
-### Loot Types
-- 🖼️ **Painting** (50 pts) - Light, minimal speed penalty
-- 🗿 **Statue** (120 pts) - Medium weight, -15% speed
-- 💎 **Gem Case** (250 pts) - Heavy, -25% speed, HIGH RISK/REWARD
+### Gameplay
+1. Move around the map using the virtual joystick
+2. Find white circular **snow patches** on the ground
+3. Get close to a snow patch and press **ROLL SNOWBALL**
+4. Aim at the red AI opponent by dragging the screen
+5. Press **THROW** to launch your snowball
+6. Hit the AI to score points
+7. **First to 10 hits wins!**
 
-### Threats
-- **Spotlights** 🔦 - Rotating and sweeping detection cones
-  - Getting spotted: -0.5x multiplier, resets extraction streak
-- **Ghosts** 👻 - Patrol the gallery on set paths
-  - Collision: drops carried loot, "spooked" debuff, -0.5x multiplier
+### Strategy Tips
+- The AI will chase snow patches and shoot at you automatically
+- Use the house and trees for cover
+- Plan your route to snow patches carefully
+- Lead your shots - the AI is moving!
+- Watch for incoming AI snowballs
 
-### Scoring
-- Score only increases when you extract loot at the van
-- **Extraction bonus**: +25% of loot value
-- **Multiplier**: Starts at 1.0x
-  - +0.15x per successful extraction (max 3.0x)
-  - -0.5x when spotted or hit (min 1.0x)
-- **Perfect Stealth**: Complete a run without getting spotted or hit
+## 🎨 Environment
+
+The 3D map includes:
+- 🏠 **House** - Brown wooden house with red roof (provides cover)
+- 🌳 **Trees** - Pine trees around the perimeter
+- 🌿 **Bushes** - Green bushes scattered around
+- ⚪ **Snow Patches** - White circles where you can roll snowballs (6 locations)
+- 🟢 **Grass** - Green ground plane
 
 ## 🚀 Running Locally
 
 ### Option 1: Direct File Open
-Simply open `index.html` in a modern web browser (Chrome recommended).
+Open `index.html` directly in a modern web browser (Chrome recommended for best performance).
 
 ### Option 2: Local Server (Recommended)
 ```bash
@@ -54,7 +61,7 @@ python3 -m http.server 8000
 # Using Python 2
 python -m SimpleHTTPServer 8000
 
-# Using Node.js (if you have http-server installed)
+# Using Node.js
 npx http-server -p 8000
 ```
 
@@ -62,128 +69,148 @@ Then navigate to `http://localhost:8000`
 
 ## 📦 Deploying to Netlify
 
-### Method 1: Drag & Drop
-1. Go to [Netlify](https://www.netlify.com/)
+### Method 1: Drag & Drop (Easiest)
+1. Go to [netlify.com](https://www.netlify.com/)
 2. Sign up or log in
-3. Drag and drop the entire `haunted-gallery-heist` folder onto the Netlify dashboard
-4. Your game will be live at a Netlify URL instantly!
+3. Drag the entire project folder onto the Netlify dashboard
+4. Your game goes live instantly!
 
-### Method 2: Git Repository
-1. Create a new repository on GitHub
-2. Push this code to the repository:
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin YOUR_REPO_URL
-git push -u origin main
-```
-3. In Netlify, click "New site from Git"
-4. Connect your repository
-5. Build settings:
-   - **Build command**: Leave empty
-   - **Publish directory**: Leave empty or use `.`
-6. Deploy!
+### Method 2: Git Deploy
+1. Push this code to a GitHub repository
+2. In Netlify, click "New site from Git"
+3. Connect your repository
+4. Leave build settings empty (it's a static site)
+5. Deploy!
 
 ### Method 3: Netlify CLI
 ```bash
-# Install Netlify CLI
 npm install -g netlify-cli
-
-# Deploy
-cd haunted-gallery-heist
+cd snowball-showdown
 netlify deploy --prod
 ```
 
-## 📊 Stats Tracking
-
-The game automatically tracks and persists:
-- **Best Score** - Your highest score ever
-- **Best Perfect Stealth Score** - Highest score without getting spotted/hit
-- **Longest Extraction Streak** - Most consecutive extractions without penalties
-- **Last 10 Scores** - Your recent performance history
-
-Stats are stored in browser localStorage and persist across sessions.
-
-## 🎨 Technical Details
+## 🎯 Technical Details
 
 ### Tech Stack
-- **Phaser 3.70.0** - Game framework
-- **Vanilla JavaScript** - No TypeScript, no build step
-- **HTML5 Canvas** - Rendering
-- **LocalStorage** - Persistent data
+- **Three.js r160** - 3D graphics engine
+- **Vanilla JavaScript** - No frameworks, no build step
+- **HTML5 Canvas** - WebGL rendering
+- **CSS3** - UI styling and responsiveness
 
 ### Architecture
-- **Modular class structure** - Player, Spotlight, Ghost, Loot classes
-- **Scene system** - Boot scene + Game scene
-- **Arcade Physics** - Collision detection
-- **Procedural graphics** - No external image assets required
+```
+game.js
+├── GameState - Manages scores and game flow
+├── SnowballGame - Main game class
+│   ├── initThree() - Three.js setup
+│   ├── initScene() - Create 3D environment
+│   ├── initControls() - Touch/mouse input
+│   ├── updatePlayer() - Player movement
+│   ├── updateAI() - AI behavior
+│   └── updateSnowballs() - Projectile physics
+```
 
-### Performance
-- Optimized for mobile devices
-- FIT scaling with automatic centering
-- Touch-optimized input handling
-- Efficient rendering with Phaser Graphics
+### 3D Objects
+- **Player**: First-person camera at 1.6m height
+- **AI**: Red capsule geometry with simple AI
+- **Snowballs**: White spheres with physics
+- **House**: Composite of boxes and cone
+- **Trees**: Cylinder trunk + cone foliage
+- **Bushes**: Flattened sphere geometry
 
-## 🎮 Game Design Notes
+### Game Mechanics
 
-### Difficulty Progression
-- **0-15s**: No ghosts, learn the layout
-- **15-35s**: 1 ghost appears
-- **35-60s**: 2 ghosts, increased speeds
-- Spotlights rotate faster over time
+**Player Movement**
+- Virtual joystick for 8-directional movement
+- Speed: 5 units/second
+- Collision detection with house and boundaries
 
-### Strategy Tips
-- Plan your route before grabbing high-value loot
-- Learn spotlight patterns to time your movements
-- Build multiplier with safe extractions before going for gems
-- The van is always in the bottom-left - build muscle memory!
-- Ghost paths are predictable - observe before committing
+**Camera Control**
+- First-person perspective
+- Touch drag to look around
+- Pitch clamped to prevent over-rotation
 
-### Risk/Reward
-- Paintings are safe but low value
-- Statues offer decent points with manageable risk
-- Gems can make or break a run - go big or go home!
+**Snowball System**
+- Must be near snow patches (within 3 units)
+- Snowballs travel at 15 units/second
+- 5-second lifetime before despawning
+- Hit detection radius: 1 unit
 
-## 🐛 Browser Compatibility
+**AI Behavior**
+- Pathfinds to nearest snow patch when empty
+- Shoots at player every 3 seconds when armed
+- Moves with 30% inaccuracy for fairness
+- Speed: 3 units/second (slower than player)
+
+**Win Condition**
+- First to 10 hits wins
+- Game over screen with final score
+- Instant restart option
+
+## 📱 Browser Compatibility
 
 Tested and working on:
-- ✅ Chrome (Desktop & Android)
+- ✅ Chrome (Desktop & Mobile)
 - ✅ Firefox (Desktop)
 - ✅ Safari (iOS & Desktop)
 - ✅ Edge
+- ✅ Android Chrome
 
-For best performance, use Chrome on Android.
+Requires WebGL support. Works best on devices from 2018+.
 
 ## 📝 File Structure
 
 ```
-haunted-gallery-heist/
-├── index.html          # Main HTML file
-├── styles.css          # Styling and mobile optimizations
-├── main.js             # Complete game code (~850 lines)
+snowball-showdown/
+├── index.html          # Main HTML with UI
+├── styles.css          # Styling and mobile controls
+├── game.js             # Complete game code (~900 lines)
 └── README.md           # This file
 ```
 
-## 🎯 Future Enhancement Ideas
+## 🎮 Performance
 
-- Sound effects and background music
-- Additional ghost behavior patterns
-- Power-ups (speed boost, invisibility)
-- More loot types with special mechanics
-- Difficulty modes (Easy, Normal, Hard)
-- Online leaderboards
-- Multiple gallery themes
+- **Target**: 60 FPS on modern devices
+- **Optimized**: Shadow mapping, fog culling
+- **Mobile**: Touch-optimized with virtual joystick
+- **Lightweight**: ~900 lines of code, no external assets
+
+## 🔧 Configuration
+
+Edit `CONFIG` object in `game.js` to tweak gameplay:
+
+```javascript
+const CONFIG = {
+    PLAYER_SPEED: 5,           // Player movement speed
+    CAMERA_SENSITIVITY: 0.002, // Look sensitivity
+    SNOWBALL_SPEED: 15,        // Projectile speed
+    AI_SPEED: 3,               // AI movement speed
+    AI_SHOOT_INTERVAL: 3000,   // AI shoot delay (ms)
+    SNOW_PATCH_DISTANCE: 3,    // Pickup range
+    WIN_SCORE: 10              // Points to win
+};
+```
+
+## 🚀 Future Enhancement Ideas
+
+- Multiple AI difficulty levels
+- Power-ups (rapid fire, bigger snowballs)
+- Multiple maps/environments
+- Multiplayer support (local or online)
+- Weather effects (snowfall animation)
+- Sound effects and music
+- Player customization
+- Leaderboards
 
 ## 📄 License
 
-Free to use and modify. Built as a demonstration of Phaser 3 mobile game development.
+Free to use and modify for personal and educational purposes.
 
 ## 🙏 Credits
 
-Built with Phaser 3 by the Phaser team.
-Game design and code by [Your Name Here].
+Built with Three.js by the Three.js team.
+Game design and code implementation by Claude.
 
 ---
 
-**Good luck, master thief! 💰👻**
+**Ready for a snowball fight? Let's go! ❄️⛄**
