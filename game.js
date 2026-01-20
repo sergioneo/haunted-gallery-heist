@@ -150,6 +150,9 @@ class SnowballGame {
     }
 
     initScene() {
+        // Initialize obstacle list for snowball collision
+        this.obstacles = [];
+
         // Create multi-layered ground with different surfaces
 
         // Base ground layer - snowy field with gradient
@@ -196,22 +199,51 @@ class SnowballGame {
         snowPositions.forEach((pos, index) => {
             this.createSnowman(pos.x, pos.z, index);
             this.snowPatches.push(new THREE.Vector3(pos.x, 0, pos.z));
+            // Add snowman as obstacle for snowball collision
+            this.obstacles.push({
+                position: new THREE.Vector3(pos.x, 0, pos.z),
+                radius: 1.5
+            });
         });
 
         // House
         this.createHouse(-15, -15);
+        // Add house as obstacle
+        this.obstacles.push({
+            position: new THREE.Vector3(-15, 0, -15),
+            radius: 7
+        });
 
         // Bushes
-        this.createBush(10, 8, 0x228B22);
-        this.createBush(-5, -5, 0x2F4F2F);
-        this.createBush(15, -10, 0x228B22);
-        this.createBush(-12, 10, 0x2F4F2F);
+        const bushPositions = [
+            { x: 10, z: 8 },
+            { x: -5, z: -5 },
+            { x: 15, z: -10 },
+            { x: -12, z: 10 }
+        ];
+        bushPositions.forEach((pos, i) => {
+            const color = i % 2 === 0 ? 0x228B22 : 0x2F4F2F;
+            this.createBush(pos.x, pos.z, color);
+            this.obstacles.push({
+                position: new THREE.Vector3(pos.x, 0, pos.z),
+                radius: 2
+            });
+        });
 
         // Trees
-        this.createTree(18, 15);
-        this.createTree(-18, 12);
-        this.createTree(12, -18);
-        this.createTree(-15, -18);
+        const treePositions = [
+            { x: 18, z: 15 },
+            { x: -18, z: 12 },
+            { x: 12, z: -18 },
+            { x: -15, z: -18 }
+        ];
+        treePositions.forEach(pos => {
+            this.createTree(pos.x, pos.z);
+            this.obstacles.push({
+                position: new THREE.Vector3(pos.x, 0, pos.z),
+                radius: 2
+            });
+        });
 
         // Add decorative snow piles around the map
         this.createSnowPiles();
@@ -673,13 +705,103 @@ class SnowballGame {
     }
 
     createAI() {
-        // AI body (simple character representation)
-        const aiGeometry = new THREE.CapsuleGeometry(0.5, 1, 8, 16);
-        const aiMaterial = new THREE.MeshStandardMaterial({ color: 0xFF4444 });
-        this.ai = new THREE.Mesh(aiGeometry, aiMaterial);
-        this.ai.position.set(20, 1, 20);
-        this.ai.castShadow = true;
-        this.scene.add(this.ai);
+        // Create AI as a snowman (enemy snowman)
+        this.aiSnowman = new THREE.Group();
+        const snowMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            roughness: 0.9
+        });
+
+        // Base snowball
+        const baseGeometry = new THREE.SphereGeometry(0.7, 16, 16);
+        const base = new THREE.Mesh(baseGeometry, snowMaterial);
+        base.position.set(0, 0.7, 0);
+        base.castShadow = true;
+        base.receiveShadow = true;
+        this.aiSnowman.add(base);
+
+        // Middle snowball
+        const midGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+        const mid = new THREE.Mesh(midGeometry, snowMaterial);
+        mid.position.set(0, 1.6, 0);
+        mid.castShadow = true;
+        mid.receiveShadow = true;
+        this.aiSnowman.add(mid);
+
+        // Head snowball
+        const headGeometry = new THREE.SphereGeometry(0.35, 16, 16);
+        const head = new THREE.Mesh(headGeometry, snowMaterial);
+        head.position.set(0, 2.3, 0);
+        head.castShadow = true;
+        head.receiveShadow = true;
+        this.aiSnowman.add(head);
+
+        // Evil red eyes
+        const eyeMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFF0000,
+            emissive: 0xFF0000,
+            emissiveIntensity: 0.5
+        });
+        const eyeGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+
+        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        leftEye.position.set(0.1, 2.4, 0.3);
+        this.aiSnowman.add(leftEye);
+
+        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        rightEye.position.set(-0.1, 2.4, 0.3);
+        this.aiSnowman.add(rightEye);
+
+        // Black coal nose
+        const noseGeometry = new THREE.ConeGeometry(0.06, 0.3, 8);
+        const noseMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+        nose.position.set(0, 2.3, 0.35);
+        nose.rotation.x = Math.PI / 2;
+        this.aiSnowman.add(nose);
+
+        // Red scarf
+        const scarfGeometry = new THREE.TorusGeometry(0.55, 0.08, 8, 16);
+        const scarfMaterial = new THREE.MeshStandardMaterial({ color: 0xFF0000 });
+        const scarf = new THREE.Mesh(scarfGeometry, scarfMaterial);
+        scarf.position.set(0, 1.4, 0);
+        scarf.rotation.x = Math.PI / 2;
+        this.aiSnowman.add(scarf);
+
+        // Stick arms
+        const armMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
+        const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.8, 8);
+
+        const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+        leftArm.position.set(0.6, 1.6, 0);
+        leftArm.rotation.z = -Math.PI / 3;
+        leftArm.castShadow = true;
+        this.aiSnowman.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+        rightArm.position.set(-0.6, 1.6, 0);
+        rightArm.rotation.z = Math.PI / 3;
+        rightArm.castShadow = true;
+        this.aiSnowman.add(rightArm);
+
+        // Top hat (villain hat)
+        const hatBrimGeometry = new THREE.CylinderGeometry(0.45, 0.45, 0.08, 16);
+        const hatMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+        const hatBrim = new THREE.Mesh(hatBrimGeometry, hatMaterial);
+        hatBrim.position.set(0, 2.65, 0);
+        this.aiSnowman.add(hatBrim);
+
+        const hatTopGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 16);
+        const hatTop = new THREE.Mesh(hatTopGeometry, hatMaterial);
+        hatTop.position.set(0, 2.95, 0);
+        hatTop.castShadow = true;
+        this.aiSnowman.add(hatTop);
+
+        this.aiSnowman.position.set(20, 0, 20);
+        this.scene.add(this.aiSnowman);
+
+        // Store reference for easy access
+        this.ai = this.aiSnowman;
 
         // AI state
         this.aiState = {
@@ -800,7 +922,7 @@ class SnowballGame {
         if (this.state.nearSnow && !this.state.hasSnowball) {
             this.state.hasSnowball = true;
             this.updateUI();
-            this.showMessage('Snowball Rolled! ❄️');
+            // Removed distracting message
         }
     }
 
@@ -818,7 +940,7 @@ class SnowballGame {
 
         this.snowballs.push(snowball);
         this.updateUI();
-        this.showMessage('Throw! 💨');
+        // Removed distracting message
     }
 
     createSnowballObject(position, direction) {
@@ -983,7 +1105,7 @@ class SnowballGame {
 
             if (!this.checkCollision(newPosition)) {
                 this.aiState.position.copy(newPosition);
-                this.ai.position.set(newPosition.x, 1, newPosition.z);
+                this.ai.position.set(newPosition.x, 0, newPosition.z);
             }
         }
     }
@@ -1011,6 +1133,21 @@ class SnowballGame {
         this.aiSnowballs.push(snowball);
     }
 
+    checkSnowballObstacleCollision(snowballPosition) {
+        // Check if snowball hits any obstacle
+        for (const obstacle of this.obstacles) {
+            const dist = new THREE.Vector2(
+                snowballPosition.x - obstacle.position.x,
+                snowballPosition.z - obstacle.position.z
+            ).length();
+
+            if (dist < obstacle.radius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     updateSnowballs(delta) {
         // Update player snowballs
         for (let i = this.snowballs.length - 1; i >= 0; i--) {
@@ -1022,11 +1159,18 @@ class SnowballGame {
 
             snowball.lifetime -= delta;
 
+            // Check collision with obstacles
+            if (this.checkSnowballObstacleCollision(snowball.mesh.position)) {
+                this.scene.remove(snowball.mesh);
+                this.snowballs.splice(i, 1);
+                continue;
+            }
+
             // Check collision with AI
             const distToAI = snowball.mesh.position.distanceTo(this.ai.position);
             if (distToAI < 1) {
                 this.state.addPlayerScore();
-                this.showMessage('HIT! 🎯 +1');
+                // Removed distracting message - score updates in HUD
                 this.scene.remove(snowball.mesh);
                 this.snowballs.splice(i, 1);
                 this.updateUI();
@@ -1054,13 +1198,20 @@ class SnowballGame {
 
             snowball.lifetime -= delta;
 
+            // Check collision with obstacles
+            if (this.checkSnowballObstacleCollision(snowball.mesh.position)) {
+                this.scene.remove(snowball.mesh);
+                this.aiSnowballs.splice(i, 1);
+                continue;
+            }
+
             // Check collision with player
             const distToPlayer = snowball.mesh.position.distanceTo(
                 this.playerPosition.clone().add(new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT / 2, 0))
             );
             if (distToPlayer < 1) {
                 this.state.addAIScore();
-                this.showMessage('YOU GOT HIT! 💥');
+                // Removed distracting message - score updates in HUD
                 this.scene.remove(snowball.mesh);
                 this.aiSnowballs.splice(i, 1);
                 this.updateUI();
@@ -1123,7 +1274,7 @@ class SnowballGame {
 
         // Reset AI
         this.aiState.position.set(20, 0, 20);
-        this.ai.position.set(20, 1, 20);
+        this.ai.position.set(20, 0, 20);
         this.aiState.hasSnowball = false;
         this.aiState.targetSnowPatch = null;
         this.aiState.lastShot = 0;
