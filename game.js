@@ -1471,7 +1471,12 @@ class SnowballGame {
                 new THREE.Vector3(25, 0, 20),    // Behind snow hill
                 new THREE.Vector3(16, 0, 3),     // Behind snow hill
                 new THREE.Vector3(-20, 0, 8)     // Behind snow hill
-            ]
+            ],
+            // Smart AI tracking
+            lastPlayerPosition: this.playerPosition.clone(),
+            playerVelocity: new THREE.Vector3(),
+            dodgeDirection: null,
+            isDodging: false
         };
     }
 
@@ -1955,11 +1960,79 @@ class SnowballGame {
         return false;
     }
 
+    checkAndDodgeSnowballs(delta) {
+        // SMART FEATURE 4: Dodge incoming snowballs
+        let nearestThreat = null;
+        let nearestDist = Infinity;
+
+        // Check all player snowballs
+        for (const snowball of this.snowballs) {
+            const distToAI = snowball.mesh.position.distanceTo(this.aiState.position);
+
+            // If snowball is within danger range and heading towards AI
+            if (distToAI < 10) {
+                const snowballToAI = this.aiState.position.clone().sub(snowball.mesh.position);
+                const velocityDir = snowball.velocity.clone().normalize();
+                const dotProduct = velocityDir.dot(snowballToAI.normalize());
+
+                // If snowball is heading towards AI (dot product > 0.7 means it's aimed at us)
+                if (dotProduct > 0.7 && distToAI < nearestDist) {
+                    nearestDist = distToAI;
+                    nearestThreat = snowball;
+                }
+            }
+        }
+
+        // If there's an incoming snowball, dodge it!
+        if (nearestThreat && nearestDist < 8) {
+            if (!this.aiState.isDodging) {
+                // Start dodging - pick perpendicular direction to snowball velocity
+                const snowballVel = nearestThreat.velocity.clone().normalize();
+                this.aiState.dodgeDirection = new THREE.Vector3(
+                    -snowballVel.z, // Perpendicular to velocity
+                    0,
+                    snowballVel.x
+                );
+                // Randomly choose left or right
+                if (Math.random() < 0.5) {
+                    this.aiState.dodgeDirection.multiplyScalar(-1);
+                }
+                this.aiState.isDodging = true;
+            }
+
+            // Execute dodge
+            const dodgePosition = this.aiState.position.clone().add(
+                this.aiState.dodgeDirection.clone().multiplyScalar(CONFIG.AI_SPEED * 1.5 * delta)
+            );
+
+            if (!this.checkCollision(dodgePosition)) {
+                this.aiState.position.copy(dodgePosition);
+                this.ai.position.set(dodgePosition.x, 0, dodgePosition.z);
+            }
+        } else {
+            // No threat, stop dodging
+            this.aiState.isDodging = false;
+            this.aiState.dodgeDirection = null;
+        }
+    }
+
     updateAI(delta) {
         if (!this.state.gameStarted || this.state.gameOver) return;
 
         const currentTime = Date.now();
         const distanceToPlayer = this.aiState.position.distanceTo(this.playerPosition);
+
+        // SMART FEATURE: Track player velocity for prediction
+        this.aiState.playerVelocity = this.playerPosition.clone()
+            .sub(this.aiState.lastPlayerPosition)
+            .multiplyScalar(1 / delta);
+        this.aiState.lastPlayerPosition.copy(this.playerPosition);
+
+        // SMART FEATURE 4: Dodge incoming snowballs
+        // Only dodge if not currently getting snowball
+        if (this.aiState.hasSnowball || this.aiState.targetSnowPatch) {
+            this.checkAndDodgeSnowballs(delta);
+        }
 
         // AI behavior: Get snowball if doesn't have one
         if (!this.aiState.hasSnowball) {
@@ -2004,8 +2077,14 @@ class SnowballGame {
         } else {
             // Has snowball - move to hiding spots and shoot
 
-            // If player gets too close, switch hiding spots
-            if (distanceToPlayer < 10) {
+            // SMART FEATURE 5: Tactical awareness
+            // If player has snowball and is close, prioritize cover
+            // If player doesn't have snowball, be more aggressive
+            const playerHasSnowball = this.state.hasSnowball;
+            const shouldBeCautious = playerHasSnowball && distanceToPlayer < 15;
+
+            // If player gets too close OR we should be cautious, switch hiding spots
+            if (distanceToPlayer < 10 || (shouldBeCautious && Math.random() < 0.3)) {
                 this.aiState.currentHidingSpot = this.getRandomHidingSpot();
             }
 
@@ -2019,8 +2098,10 @@ class SnowballGame {
                         .sub(this.aiState.position)
                         .normalize();
 
+                    // Move faster when vulnerable (no cover and player has snowball)
+                    const speedMultiplier = shouldBeCautious ? 1.0 : 0.7;
                     const newPosition = this.aiState.position.clone().add(
-                        direction.multiplyScalar(CONFIG.AI_SPEED * 0.7 * delta)
+                        direction.multiplyScalar(CONFIG.AI_SPEED * speedMultiplier * delta)
                     );
 
                     if (!this.checkCollision(newPosition)) {
@@ -2048,8 +2129,17 @@ class SnowballGame {
                 }
             }
 
+            // SMART FEATURE 6: Adaptive shooting interval
+            // Shoot faster when player is close and doesn't have snowball
+            let shootInterval = CONFIG.AI_SHOOT_INTERVAL;
+            if (!playerHasSnowball && distanceToPlayer < 15) {
+                shootInterval = 2000; // Faster when player is vulnerable
+            } else if (distanceToPlayer > 20) {
+                shootInterval = 3500; // Slower when far away (saving ammo)
+            }
+
             // Shoot at player
-            if (currentTime - this.aiState.lastShot > CONFIG.AI_SHOOT_INTERVAL) {
+            if (currentTime - this.aiState.lastShot > shootInterval) {
                 this.aiShoot();
                 this.aiState.lastShot = currentTime;
             }
@@ -2084,19 +2174,45 @@ class SnowballGame {
 
         this.aiState.hasSnowball = false;
 
-        // Calculate direction to player (with some randomness)
-        const direction = this.playerPosition.clone()
+        const distanceToPlayer = this.aiState.position.distanceTo(this.playerPosition);
+
+        // SMART FEATURE 1: Distance-based charging
+        // Far away = high charge (2.0), close = low charge (0.5)
+        let chargeLevel = 0.5;
+        if (distanceToPlayer > 25) {
+            chargeLevel = 2.0; // Max charge for far shots
+        } else if (distanceToPlayer > 15) {
+            chargeLevel = 1.5; // High charge for medium distance
+        } else if (distanceToPlayer > 8) {
+            chargeLevel = 1.0; // Medium charge
+        } else {
+            chargeLevel = 0.5; // Quick shots when close
+        }
+
+        const powerMultiplier = 0.5 + (chargeLevel * 1.0);
+
+        // SMART FEATURE 2: Lead targeting - predict where player will be
+        const timeToHit = distanceToPlayer / (CONFIG.SNOWBALL_SPEED * powerMultiplier);
+        const predictedPlayerPos = this.playerPosition.clone().add(
+            this.aiState.playerVelocity.clone().multiplyScalar(timeToHit)
+        );
+
+        // Aim at predicted position
+        let direction = predictedPlayerPos.clone()
             .sub(this.aiState.position)
             .normalize();
 
-        // Add some inaccuracy
-        direction.x += (Math.random() - 0.5) * 0.3;
-        direction.z += (Math.random() - 0.5) * 0.3;
+        // SMART FEATURE 3: Reduced inaccuracy (only slight randomness now)
+        // Only add small error for realism
+        const accuracyError = 0.08; // Much lower than 0.3
+        direction.x += (Math.random() - 0.5) * accuracyError;
+        direction.z += (Math.random() - 0.5) * accuracyError;
         direction.normalize();
 
         const snowball = this.createSnowballObject(
             this.aiState.position.clone().add(new THREE.Vector3(0, 1.5, 0)),
-            direction
+            direction,
+            powerMultiplier
         );
 
         this.aiSnowballs.push(snowball);
