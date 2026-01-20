@@ -417,43 +417,60 @@ class SnowballGame {
     }
 
     createSnowPiles() {
-        // Add decorative snow piles scattered around the map
-        const pilePositions = [
-            { x: -22, z: -5, size: 1 },
-            { x: 16, z: 3, size: 0.8 },
-            { x: -3, z: 18, size: 1.2 },
-            { x: 22, z: -15, size: 0.9 },
-            { x: -18, z: 20, size: 1.1 },
-            { x: 6, z: -20, size: 0.7 },
-            { x: -25, z: -20, size: 1.3 },
-            { x: 25, z: 20, size: 1 }
+        // Add LARGE collectible snow hills/piles
+        const collectibleHills = [
+            { x: -22, z: -5, size: 1.8 },
+            { x: 16, z: 3, size: 1.6 },
+            { x: -3, z: 18, size: 2.0 },
+            { x: 22, z: -15, size: 1.7 },
+            { x: -18, z: 20, size: 1.9 },
+            { x: 6, z: -20, size: 1.5 },
+            { x: -25, z: -20, size: 2.1 },
+            { x: 25, z: 20, size: 1.8 },
+            { x: -12, z: -15, size: 1.6 },
+            { x: 15, z: -8, size: 1.7 },
+            { x: -20, z: 8, size: 1.9 },
+            { x: 18, z: 18, size: 1.6 }
         ];
 
-        pilePositions.forEach(pos => {
-            // Main pile
-            const pileGeometry = new THREE.SphereGeometry(pos.size, 12, 12);
-            const pileMaterial = new THREE.MeshStandardMaterial({
+        collectibleHills.forEach(pos => {
+            // Main hill - larger and more prominent
+            const hillGeometry = new THREE.SphereGeometry(pos.size, 16, 16);
+            const hillMaterial = new THREE.MeshStandardMaterial({
                 color: 0xFFFFFF,
                 roughness: 0.9
             });
-            const pile = new THREE.Mesh(pileGeometry, pileMaterial);
-            pile.position.set(pos.x, pos.size * 0.5, pos.z);
-            pile.scale.y = 0.6;
-            pile.castShadow = true;
-            pile.receiveShadow = true;
-            this.scene.add(pile);
+            const hill = new THREE.Mesh(hillGeometry, hillMaterial);
+            hill.position.set(pos.x, pos.size * 0.6, pos.z);
+            hill.scale.set(1.2, 0.7, 1.2);  // Make it wider and flatter
+            hill.castShadow = true;
+            hill.receiveShadow = true;
+            this.scene.add(hill);
 
-            // Add some smaller piles around for detail
-            for (let i = 0; i < 3; i++) {
-                const angle = (i / 3) * Math.PI * 2;
-                const radius = pos.size * 1.2;
+            // Add layer on top for extra height
+            const topLayer = new THREE.Mesh(
+                new THREE.SphereGeometry(pos.size * 0.6, 12, 12),
+                hillMaterial
+            );
+            topLayer.position.set(pos.x, pos.size * 0.9, pos.z);
+            topLayer.scale.set(1, 0.6, 1);
+            topLayer.castShadow = true;
+            this.scene.add(topLayer);
+
+            // Add this hill as a collectible snow source
+            this.snowPatches.push(new THREE.Vector3(pos.x, 0, pos.z));
+
+            // Add smaller piles around for detail
+            for (let i = 0; i < 4; i++) {
+                const angle = (i / 4) * Math.PI * 2;
+                const radius = pos.size * 1.5;
                 const smallPile = new THREE.Mesh(
-                    new THREE.SphereGeometry(pos.size * 0.4, 8, 8),
-                    pileMaterial
+                    new THREE.SphereGeometry(pos.size * 0.3, 8, 8),
+                    hillMaterial
                 );
                 smallPile.position.set(
                     pos.x + Math.cos(angle) * radius,
-                    pos.size * 0.2,
+                    pos.size * 0.15,
                     pos.z + Math.sin(angle) * radius
                 );
                 smallPile.scale.y = 0.5;
@@ -1148,7 +1165,18 @@ class SnowballGame {
             hasSnowball: false,
             targetSnowPatch: null,
             lastShot: 0,
-            moveDirection: new THREE.Vector3()
+            moveDirection: new THREE.Vector3(),
+            currentHidingSpot: null,
+            hidingSpots: [
+                new THREE.Vector3(-15, 0, -15),  // Near house
+                new THREE.Vector3(18, 0, 15),    // Near tree
+                new THREE.Vector3(-18, 0, 12),   // Near tree
+                new THREE.Vector3(12, 0, -18),   // Near tree
+                new THREE.Vector3(-25, 0, -20),  // Behind snow hill
+                new THREE.Vector3(25, 0, 20),    // Behind snow hill
+                new THREE.Vector3(16, 0, 3),     // Behind snow hill
+                new THREE.Vector3(-20, 0, 8)     // Behind snow hill
+            ]
         };
     }
 
@@ -1293,9 +1321,13 @@ class SnowballGame {
         mesh.castShadow = true;
         this.scene.add(mesh);
 
+        // Add upward velocity for arc trajectory
+        const velocity = direction.clone().multiplyScalar(CONFIG.SNOWBALL_SPEED);
+        velocity.y += 3;  // Add upward component for arc
+
         return {
             mesh: mesh,
-            velocity: direction.multiplyScalar(CONFIG.SNOWBALL_SPEED),
+            velocity: velocity,
             lifetime: 5
         };
     }
@@ -1436,6 +1468,7 @@ class SnowballGame {
         if (!this.state.gameStarted || this.state.gameOver) return;
 
         const currentTime = Date.now();
+        const distanceToPlayer = this.aiState.position.distanceTo(this.playerPosition);
 
         // AI behavior: Get snowball if doesn't have one
         if (!this.aiState.hasSnowball) {
@@ -1463,43 +1496,75 @@ class SnowballGame {
                     direction.multiplyScalar(CONFIG.AI_SPEED * delta)
                 );
 
-                this.aiState.position.copy(newPosition);
-                this.ai.position.set(newPosition.x, 0, newPosition.z);
+                if (!this.checkCollision(newPosition)) {
+                    this.aiState.position.copy(newPosition);
+                    this.ai.position.set(newPosition.x, 0, newPosition.z);
+                }
 
                 // Check if reached snow
                 const distance = this.aiState.position.distanceTo(this.aiState.targetSnowPatch);
                 if (distance < CONFIG.SNOW_PATCH_DISTANCE) {
                     this.aiState.hasSnowball = true;
                     this.aiState.targetSnowPatch = null;
+                    // Pick a hiding spot when we get a snowball
+                    this.aiState.currentHidingSpot = this.getRandomHidingSpot();
                 }
             }
         } else {
-            // Has snowball - shoot at player
+            // Has snowball - move to hiding spots and shoot
+
+            // If player gets too close, switch hiding spots
+            if (distanceToPlayer < 10) {
+                this.aiState.currentHidingSpot = this.getRandomHidingSpot();
+            }
+
+            // Move to hiding spot
+            if (this.aiState.currentHidingSpot) {
+                const distToSpot = this.aiState.position.distanceTo(this.aiState.currentHidingSpot);
+
+                if (distToSpot > 2) {
+                    // Move towards hiding spot
+                    const direction = this.aiState.currentHidingSpot.clone()
+                        .sub(this.aiState.position)
+                        .normalize();
+
+                    const newPosition = this.aiState.position.clone().add(
+                        direction.multiplyScalar(CONFIG.AI_SPEED * 0.7 * delta)
+                    );
+
+                    if (!this.checkCollision(newPosition)) {
+                        this.aiState.position.copy(newPosition);
+                        this.ai.position.set(newPosition.x, 0, newPosition.z);
+                    }
+                } else {
+                    // At hiding spot, strafe side to side
+                    if (Math.random() < 0.02) {
+                        this.aiState.moveDirection = new THREE.Vector3(
+                            (Math.random() - 0.5) * 2,
+                            0,
+                            (Math.random() - 0.5) * 2
+                        ).normalize();
+                    }
+
+                    const newPosition = this.aiState.position.clone().add(
+                        this.aiState.moveDirection.clone().multiplyScalar(CONFIG.AI_SPEED * 0.3 * delta)
+                    );
+
+                    if (!this.checkCollision(newPosition)) {
+                        this.aiState.position.copy(newPosition);
+                        this.ai.position.set(newPosition.x, 0, newPosition.z);
+                    }
+                }
+            }
+
+            // Shoot at player
             if (currentTime - this.aiState.lastShot > CONFIG.AI_SHOOT_INTERVAL) {
                 this.aiShoot();
                 this.aiState.lastShot = currentTime;
             }
-
-            // Move randomly while shooting
-            if (Math.random() < 0.02) {
-                this.aiState.moveDirection = new THREE.Vector3(
-                    (Math.random() - 0.5) * 2,
-                    0,
-                    (Math.random() - 0.5) * 2
-                ).normalize();
-            }
-
-            const newPosition = this.aiState.position.clone().add(
-                this.aiState.moveDirection.clone().multiplyScalar(CONFIG.AI_SPEED * 0.5 * delta)
-            );
-
-            if (!this.checkCollision(newPosition)) {
-                this.aiState.position.copy(newPosition);
-                this.ai.position.set(newPosition.x, 0, newPosition.z);
-            }
         }
 
-        // Make AI snowman always face the player
+        // Make AI character always face the player
         const dirToPlayer = new THREE.Vector3(
             this.playerPosition.x - this.aiState.position.x,
             0,
@@ -1507,6 +1572,20 @@ class SnowballGame {
         );
         const angleToPlayer = Math.atan2(dirToPlayer.x, dirToPlayer.z);
         this.ai.rotation.y = angleToPlayer;
+    }
+
+    getRandomHidingSpot() {
+        // Pick a random hiding spot that's far from player
+        const farSpots = this.aiState.hidingSpots.filter(spot => {
+            return spot.distanceTo(this.playerPosition) > 12;
+        });
+
+        if (farSpots.length > 0) {
+            return farSpots[Math.floor(Math.random() * farSpots.length)];
+        }
+
+        // If no far spots, just pick any random one
+        return this.aiState.hidingSpots[Math.floor(Math.random() * this.aiState.hidingSpots.length)];
     }
 
     aiShoot() {
@@ -1556,6 +1635,9 @@ class SnowballGame {
                 snowball.velocity.clone().multiplyScalar(delta)
             );
 
+            // Apply gravity for curved trajectory
+            snowball.velocity.y -= 9.8 * delta;
+
             snowball.lifetime -= delta;
 
             // Check collision with obstacles
@@ -1566,9 +1648,14 @@ class SnowballGame {
                 continue;
             }
 
-            // Check collision with AI
-            const distToAI = snowball.mesh.position.distanceTo(this.ai.position);
-            if (distToAI < 1) {
+            // Check collision with AI (check against character center, not ground position)
+            const aiCenterPosition = new THREE.Vector3(
+                this.ai.position.x,
+                1.2,  // Center of AI character body
+                this.ai.position.z
+            );
+            const distToAI = snowball.mesh.position.distanceTo(aiCenterPosition);
+            if (distToAI < 1.5) {  // Larger radius to account for full character
                 this.state.addPlayerScore();
                 this.createExplosion(snowball.mesh.position, 1.2);
                 this.scene.remove(snowball.mesh);
@@ -1595,6 +1682,9 @@ class SnowballGame {
             snowball.mesh.position.add(
                 snowball.velocity.clone().multiplyScalar(delta)
             );
+
+            // Apply gravity for curved trajectory
+            snowball.velocity.y -= 9.8 * delta;
 
             snowball.lifetime -= delta;
 
