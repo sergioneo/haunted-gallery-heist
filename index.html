@@ -84,12 +84,61 @@
             </div>
         </div>
 
-        <!-- Start Screen -->
-        <div id="start-screen">
+        <!-- Mode Selection Screen -->
+        <div id="mode-screen">
             <div class="overlay"></div>
             <div id="snowflakes"></div>
             <div class="start-content">
                 <h1>❄️ SNOWBALL SHOWDOWN ❄️</h1>
+                <p class="instructions">Choose your game mode</p>
+                <div class="mode-buttons">
+                    <button id="ai-mode-btn" class="mode-btn">
+                        <span class="mode-icon">🤖</span>
+                        <span class="mode-label">VS AI</span>
+                    </button>
+                    <button id="multiplayer-mode-btn" class="mode-btn">
+                        <span class="mode-icon">👥</span>
+                        <span class="mode-label">ONLINE</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Multiplayer Lobby Screen -->
+        <div id="lobby-screen" class="hidden">
+            <div class="overlay"></div>
+            <div class="start-content">
+                <h1>🎮 ONLINE MULTIPLAYER 🎮</h1>
+                <p class="instructions">Create or join a room</p>
+                <div class="lobby-actions">
+                    <button id="create-room-btn" class="main-btn">CREATE ROOM</button>
+                    <div class="or-divider">- OR -</div>
+                    <input type="text" id="room-code-input" placeholder="Enter room code" maxlength="6">
+                    <button id="join-room-btn" class="main-btn">JOIN ROOM</button>
+                </div>
+                <div id="lobby-message"></div>
+                <button id="back-to-mode-btn" class="secondary-btn">BACK</button>
+            </div>
+        </div>
+
+        <!-- Waiting Room Screen -->
+        <div id="waiting-screen" class="hidden">
+            <div class="overlay"></div>
+            <div class="start-content">
+                <h1>⏳ WAITING FOR OPPONENT ⏳</h1>
+                <div id="room-code-display"></div>
+                <p class="instructions">Share this code with your opponent!</p>
+                <div class="spinner"></div>
+                <button id="cancel-room-btn" class="secondary-btn">CANCEL</button>
+            </div>
+        </div>
+
+        <!-- Start Screen (Ready to play) -->
+        <div id="start-screen" class="hidden">
+            <div class="overlay"></div>
+            <div id="snowflakes"></div>
+            <div class="start-content">
+                <h1>❄️ READY TO PLAY! ❄️</h1>
                 <p class="instructions">
                     Find snowmen and snow hills to collect snowballs<br>
                     Hold throw button longer for more power!<br>
@@ -107,6 +156,10 @@
 
     <!-- Three.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
     <!-- Game Code -->
     <script src="game.js"></script>

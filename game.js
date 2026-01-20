@@ -4,8 +4,296 @@
  *
  * DEPLOYMENT:
  * - Static site, works on Netlify with drag & drop
- * - No build step required
+ * - Supports both AI and Online Multiplayer modes
+ * - See FIREBASE_SETUP.md for online multiplayer setup
  */
+
+// ============================================================================
+// FIREBASE CONFIGURATION
+// ============================================================================
+
+// TODO: Replace with your Firebase config from Firebase Console
+// See FIREBASE_SETUP.md for detailed instructions
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY_HERE",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
+// Initialize Firebase
+let database = null;
+let firebaseInitialized = false;
+
+function initFirebase() {
+    try {
+        if (typeof firebase === 'undefined') {
+            console.warn("Firebase SDK not loaded");
+            return false;
+        }
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        database = firebase.database();
+        firebaseInitialized = true;
+        console.log("Firebase initialized successfully");
+        return true;
+    } catch (error) {
+        console.error("Firebase initialization error:", error);
+        return false;
+    }
+}
+
+// ============================================================================
+// MULTIPLAYER MANAGER
+// ============================================================================
+
+class MultiplayerManager {
+    constructor() {
+        this.roomCode = null;
+        this.playerId = this.generatePlayerId();
+        this.isHost = false;
+        this.opponentId = null;
+        this.roomRef = null;
+        this.playerRef = null;
+        this.connected = false;
+    }
+
+    generatePlayerId() {
+        return 'player_' + Math.random().toString(36).substr(2, 9) + Date.now();
+    }
+
+    generateRoomCode() {
+        return Math.random().toString(36).substr(2, 6).toUpperCase();
+    }
+
+    async createRoom() {
+        if (!firebaseInitialized) {
+            throw new Error("Firebase not initialized. See FIREBASE_SETUP.md");
+        }
+
+        this.roomCode = this.generateRoomCode();
+        this.isHost = true;
+        this.roomRef = database.ref('rooms/' + this.roomCode);
+
+        const roomData = {
+            host: this.playerId,
+            players: {
+                [this.playerId]: {
+                    id: this.playerId,
+                    ready: false,
+                    score: 0,
+                    position: { x: 0, y: 0, z: 0 },
+                    hasSnowball: false,
+                    connectedAt: Date.now()
+                }
+            },
+            gameState: 'waiting',
+            createdAt: Date.now()
+        };
+
+        try {
+            await this.roomRef.set(roomData);
+            this.playerRef = this.roomRef.child('players/' + this.playerId);
+            this.connected = true;
+
+            // Auto-remove room after 10 minutes of inactivity
+            this.roomRef.onDisconnect().remove();
+
+            return this.roomCode;
+        } catch (error) {
+            console.error("Error creating room:", error);
+            throw error;
+        }
+    }
+
+    async joinRoom(roomCode) {
+        if (!firebaseInitialized) {
+            throw new Error("Firebase not initialized. See FIREBASE_SETUP.md");
+        }
+
+        this.roomCode = roomCode.toUpperCase();
+        this.isHost = false;
+        this.roomRef = database.ref('rooms/' + this.roomCode);
+
+        try {
+            const snapshot = await this.roomRef.once('value');
+            if (!snapshot.exists()) {
+                throw new Error("Room not found");
+            }
+
+            const roomData = snapshot.val();
+            const playerCount = Object.keys(roomData.players || {}).length;
+
+            if (playerCount >= 2) {
+                throw new Error("Room is full");
+            }
+
+            // Find host player ID
+            this.opponentId = roomData.host;
+
+            // Add this player to the room
+            this.playerRef = this.roomRef.child('players/' + this.playerId);
+            await this.playerRef.set({
+                id: this.playerId,
+                ready: false,
+                score: 0,
+                position: { x: 20, y: 0, z: 20 },
+                hasSnowball: false,
+                connectedAt: Date.now()
+            });
+
+            this.playerRef.onDisconnect().remove();
+            this.connected = true;
+
+            return this.roomCode;
+        } catch (error) {
+            console.error("Error joining room:", error);
+            throw error;
+        }
+    }
+
+    onPlayerJoined(callback) {
+        if (!this.roomRef) return;
+
+        const playersRef = this.roomRef.child('players');
+        playersRef.on('value', (snapshot) => {
+            const players = snapshot.val() || {};
+            const playerIds = Object.keys(players);
+
+            if (playerIds.length === 2) {
+                this.opponentId = playerIds.find(id => id !== this.playerId);
+                callback(this.opponentId);
+            }
+        });
+    }
+
+    onOpponentPosition(callback) {
+        if (!this.roomRef || !this.opponentId) return;
+
+        const opponentRef = this.roomRef.child('players/' + this.opponentId + '/position');
+        opponentRef.on('value', (snapshot) => {
+            const position = snapshot.val();
+            if (position) {
+                callback(position);
+            }
+        });
+    }
+
+    updatePosition(x, y, z) {
+        if (!this.playerRef || !this.connected) return;
+        this.playerRef.child('position').set({ x, y, z });
+    }
+
+    onOpponentSnowball(callback) {
+        if (!this.roomRef || !this.opponentId) return;
+
+        const snowballRef = this.roomRef.child('players/' + this.opponentId + '/lastSnowball');
+        snowballRef.on('value', (snapshot) => {
+            const snowball = snapshot.val();
+            if (snowball && snowball.timestamp > (this.lastSnowballTime || 0)) {
+                this.lastSnowballTime = snowball.timestamp;
+                callback(snowball);
+            }
+        });
+    }
+
+    throwSnowball(position, direction, power) {
+        if (!this.playerRef || !this.connected) return;
+
+        this.playerRef.child('lastSnowball').set({
+            position: position,
+            direction: direction,
+            power: power,
+            timestamp: Date.now()
+        });
+    }
+
+    updateScore(score) {
+        if (!this.playerRef || !this.connected) return;
+        this.playerRef.child('score').set(score);
+    }
+
+    onOpponentScore(callback) {
+        if (!this.roomRef || !this.opponentId) return;
+
+        const scoreRef = this.roomRef.child('players/' + this.opponentId + '/score');
+        scoreRef.on('value', (snapshot) => {
+            const score = snapshot.val();
+            if (score !== null && score !== undefined) {
+                callback(score);
+            }
+        });
+    }
+
+    updateHasSnowball(hasSnowball) {
+        if (!this.playerRef || !this.connected) return;
+        this.playerRef.child('hasSnowball').set(hasSnowball);
+    }
+
+    onOpponentHasSnowball(callback) {
+        if (!this.roomRef || !this.opponentId) return;
+
+        const hasSnowballRef = this.roomRef.child('players/' + this.opponentId + '/hasSnowball');
+        hasSnowballRef.on('value', (snapshot) => {
+            const hasSnowball = snapshot.val();
+            if (hasSnowball !== null) {
+                callback(hasSnowball);
+            }
+        });
+    }
+
+    setReady() {
+        if (!this.playerRef || !this.connected) return;
+        this.playerRef.child('ready').set(true);
+    }
+
+    onBothReady(callback) {
+        if (!this.roomRef) return;
+
+        const playersRef = this.roomRef.child('players');
+        playersRef.on('value', (snapshot) => {
+            const players = snapshot.val() || {};
+            const playerList = Object.values(players);
+            const allReady = playerList.every(p => p.ready === true);
+            const bothJoined = playerList.length === 2;
+
+            if (allReady && bothJoined) {
+                callback();
+            }
+        });
+    }
+
+    onOpponentDisconnect(callback) {
+        if (!this.roomRef || !this.opponentId) return;
+
+        const opponentRef = this.roomRef.child('players/' + this.opponentId);
+        opponentRef.on('value', (snapshot) => {
+            if (!snapshot.exists() && this.opponentId && this.connected) {
+                callback();
+            }
+        });
+    }
+
+    async leaveRoom() {
+        if (this.playerRef) {
+            await this.playerRef.remove();
+        }
+
+        if (this.roomRef) {
+            this.roomRef.off();
+        }
+
+        this.roomCode = null;
+        this.opponentId = null;
+        this.isHost = false;
+        this.connected = false;
+    }
+}
 
 // ============================================================================
 // GAME CONFIGURATION
