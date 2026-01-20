@@ -12,16 +12,16 @@
 // FIREBASE CONFIGURATION
 // ============================================================================
 
-// TODO: Replace with your Firebase config from Firebase Console
-// See FIREBASE_SETUP.md for detailed instructions
+// Firebase Configuration
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY_HERE",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyCN5d3PF28l7asUv-K_-HKLxO5y4_vk9wU",
+    authDomain: "snowball-7fede.firebaseapp.com",
+    databaseURL: "https://snowball-7fede-default-rtdb.firebaseio.com",
+    projectId: "snowball-7fede",
+    storageBucket: "snowball-7fede.firebasestorage.app",
+    messagingSenderId: "487418056506",
+    appId: "1:487418056506:web:25bdd59df6a1b1e86d8a03",
+    measurementId: "G-SMMZTKS0QN"
 };
 
 // Initialize Firebase
@@ -361,17 +361,23 @@ class SnowballGame {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.state = new GameState();
+        this.gameMode = null; // 'ai' or 'multiplayer'
+        this.multiplayer = null;
+        this.opponent = null;  // For multiplayer mode
+        this.positionUpdateThrottle = 0;  // For throttling position updates
 
         this.initThree();
         this.initScene();
         this.initControls();
         this.initUI();
+        this.initModeSelection();
         this.createSnowflakes();
 
         this.clock = new THREE.Clock();
         this.snowballs = [];
         this.aiSnowballs = [];
         this.explosions = [];  // Track active explosions
+        this.positionUpdateThrottle = 0;
 
         this.animate();
     }
@@ -1561,11 +1567,143 @@ class SnowballGame {
         throwBtn.addEventListener('mouseup', endCharge);
     }
 
+    initModeSelection() {
+        // Initialize Firebase
+        initFirebase();
+
+        // AI Mode button
+        document.getElementById('ai-mode-btn').addEventListener('click', () => {
+            this.gameMode = 'ai';
+            document.getElementById('mode-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+        });
+
+        // Multiplayer Mode button
+        document.getElementById('multiplayer-mode-btn').addEventListener('click', () => {
+            if (!firebaseInitialized) {
+                alert('Firebase not configured. Check the console for details.');
+                return;
+            }
+            this.gameMode = 'multiplayer';
+            document.getElementById('mode-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+        });
+
+        // Create Room button
+        document.getElementById('create-room-btn').addEventListener('click', async () => {
+            try {
+                this.multiplayer = new MultiplayerManager();
+                const roomCode = await this.multiplayer.createRoom();
+                document.getElementById('lobby-screen').classList.add('hidden');
+                document.getElementById('waiting-screen').classList.remove('hidden');
+                document.getElementById('room-code-display').textContent = roomCode;
+
+                // Wait for opponent
+                this.multiplayer.onPlayerJoined(() => {
+                    document.getElementById('waiting-screen').classList.add('hidden');
+                    document.getElementById('start-screen').classList.remove('hidden');
+                    this.setupMultiplayerSync();
+                });
+            } catch (error) {
+                this.showLobbyMessage('Error creating room: ' + error.message, 'error');
+            }
+        });
+
+        // Join Room button
+        document.getElementById('join-room-btn').addEventListener('click', async () => {
+            const roomCode = document.getElementById('room-code-input').value.trim();
+            if (!roomCode) {
+                this.showLobbyMessage('Please enter a room code', 'error');
+                return;
+            }
+
+            try {
+                this.multiplayer = new MultiplayerManager();
+                await this.multiplayer.joinRoom(roomCode);
+                document.getElementById('lobby-screen').classList.add('hidden');
+                document.getElementById('start-screen').classList.remove('hidden');
+                this.setupMultiplayerSync();
+            } catch (error) {
+                this.showLobbyMessage(error.message, 'error');
+            }
+        });
+
+        // Cancel Room button
+        document.getElementById('cancel-room-btn').addEventListener('click', async () => {
+            if (this.multiplayer) {
+                await this.multiplayer.leaveRoom();
+                this.multiplayer = null;
+            }
+            document.getElementById('waiting-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+        });
+
+        // Back to Mode button
+        document.getElementById('back-to-mode-btn').addEventListener('click', () => {
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('mode-screen').classList.remove('hidden');
+        });
+    }
+
+    showLobbyMessage(message, type) {
+        const messageEl = document.getElementById('lobby-message');
+        messageEl.textContent = message;
+        messageEl.className = type;
+    }
+
+    setupMultiplayerSync() {
+        if (!this.multiplayer) return;
+
+        // Sync opponent position
+        this.multiplayer.onOpponentPosition((position) => {
+            if (this.opponent) {
+                this.opponent.position.set(position.x, position.y, position.z);
+            }
+        });
+
+        // Sync opponent snowballs
+        this.multiplayer.onOpponentSnowball((snowball) => {
+            const pos = new THREE.Vector3(snowball.position.x, snowball.position.y, snowball.position.z);
+            const dir = new THREE.Vector3(snowball.direction.x, snowball.direction.y, snowball.direction.z);
+            const snowballObj = this.createSnowballObject(pos, dir, snowball.power || 1.0);
+            this.aiSnowballs.push(snowballObj);
+        });
+
+        // Sync opponent score
+        this.multiplayer.onOpponentScore((score) => {
+            this.state.aiScore = score;
+            this.updateUI();
+        });
+
+        // Handle opponent disconnect
+        this.multiplayer.onOpponentDisconnect(() => {
+            alert('Opponent disconnected!');
+            this.restart();
+        });
+
+        // Create opponent character
+        this.createOpponentCharacter();
+    }
+
+    createOpponentCharacter() {
+        // Create the opponent character (same as AI character)
+        this.opponent = this.aiCharacter;  // Reuse the AI character as opponent
+    }
+
     initUI() {
         // Start button
         document.getElementById('start-btn').addEventListener('click', () => {
             document.getElementById('start-screen').classList.add('hidden');
             this.state.gameStarted = true;
+
+            // Mark player as ready in multiplayer
+            if (this.gameMode === 'multiplayer' && this.multiplayer) {
+                this.multiplayer.setReady();
+                // Wait for both players to be ready
+                this.multiplayer.onBothReady(() => {
+                    console.log('Both players ready!');
+                });
+            }
         });
 
         // Restart button
@@ -1613,10 +1751,12 @@ class SnowballGame {
 
         this.state.hasSnowball = false;
 
-        // Auto-aim at AI opponent
+        // Auto-aim at opponent (AI or remote player)
         const throwPosition = this.playerPosition.clone().add(new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT, 0));
-        const aiTargetPos = this.aiState.position.clone().add(new THREE.Vector3(0, 1, 0));
-        const direction = aiTargetPos.sub(throwPosition).normalize();
+        const targetPos = (this.gameMode === 'multiplayer' && this.opponent)
+            ? this.opponent.position.clone().add(new THREE.Vector3(0, 1, 0))
+            : this.aiState.position.clone().add(new THREE.Vector3(0, 1, 0));
+        const direction = targetPos.sub(throwPosition).normalize();
 
         // Calculate power multiplier (0.5x to 2.5x based on charge)
         // chargeLevel ranges from 0 to 2 seconds
@@ -1626,6 +1766,15 @@ class SnowballGame {
 
         this.snowballs.push(snowball);
         this.updateUI();
+
+        // Sync with multiplayer if in online mode
+        if (this.gameMode === 'multiplayer' && this.multiplayer) {
+            this.multiplayer.throwSnowball(
+                {x: throwPosition.x, y: throwPosition.y, z: throwPosition.z},
+                {x: direction.x, y: direction.y, z: direction.z},
+                powerMultiplier
+            );
+        }
         // Removed distracting message
     }
 
@@ -1733,13 +1882,22 @@ class SnowballGame {
             this.playerPosition.z
         );
 
-        // Auto-aim camera at AI opponent
-        const aiTargetPosition = new THREE.Vector3(
-            this.aiState.position.x,
-            this.aiState.position.y + 1,  // Aim at AI center
-            this.aiState.position.z
-        );
-        this.camera.lookAt(aiTargetPosition);
+        // Auto-aim camera at opponent (AI or remote player)
+        let targetPosition;
+        if (this.gameMode === 'multiplayer' && this.opponent) {
+            targetPosition = new THREE.Vector3(
+                this.opponent.position.x,
+                this.opponent.position.y + 1,
+                this.opponent.position.z
+            );
+        } else {
+            targetPosition = new THREE.Vector3(
+                this.aiState.position.x,
+                this.aiState.position.y + 1,  // Aim at AI center
+                this.aiState.position.z
+            );
+        }
+        this.camera.lookAt(targetPosition);
 
         // Check if near snow
         this.state.nearSnow = false;
@@ -1752,6 +1910,19 @@ class SnowballGame {
         }
 
         this.updateUI();
+
+        // Sync position in multiplayer (throttled to ~10 updates/sec)
+        if (this.gameMode === 'multiplayer' && this.multiplayer) {
+            this.positionUpdateThrottle += delta;
+            if (this.positionUpdateThrottle > 0.1) {
+                this.multiplayer.updatePosition(
+                    this.playerPosition.x,
+                    this.playerPosition.y,
+                    this.playerPosition.z
+                );
+                this.positionUpdateThrottle = 0;
+            }
+        }
     }
 
     checkCollision(position) {
@@ -1968,19 +2139,33 @@ class SnowballGame {
                 continue;
             }
 
-            // Check collision with AI (check against character center, not ground position)
-            const aiCenterPosition = new THREE.Vector3(
-                this.ai.position.x,
-                1.2,  // Center of AI character body
-                this.ai.position.z
-            );
-            const distToAI = snowball.mesh.position.distanceTo(aiCenterPosition);
-            if (distToAI < 1.5) {  // Larger radius to account for full character
+            // Check collision with opponent (AI or remote player)
+            let opponentPosition;
+            if (this.gameMode === 'multiplayer' && this.opponent) {
+                opponentPosition = new THREE.Vector3(
+                    this.opponent.position.x,
+                    1.2,  // Center of character body
+                    this.opponent.position.z
+                );
+            } else {
+                opponentPosition = new THREE.Vector3(
+                    this.ai.position.x,
+                    1.2,  // Center of AI character body
+                    this.ai.position.z
+                );
+            }
+            const distToOpponent = snowball.mesh.position.distanceTo(opponentPosition);
+            if (distToOpponent < 1.5) {  // Larger radius to account for full character
                 this.state.addPlayerScore();
                 this.createExplosion(snowball.mesh.position, 1.2);
                 this.scene.remove(snowball.mesh);
                 this.snowballs.splice(i, 1);
                 this.updateUI();
+
+                // Sync score in multiplayer
+                if (this.gameMode === 'multiplayer' && this.multiplayer) {
+                    this.multiplayer.updateScore(this.state.playerScore);
+                }
 
                 const winner = this.state.checkWin();
                 if (winner) this.endGame(winner);
@@ -2212,7 +2397,10 @@ class SnowballGame {
 
         if (this.state.gameStarted && !this.state.gameOver) {
             this.updatePlayer(delta);
-            this.updateAI(delta);
+            // Only update AI in AI mode, not in multiplayer
+            if (this.gameMode === 'ai') {
+                this.updateAI(delta);
+            }
             this.updateSnowballs(delta);
         }
 
