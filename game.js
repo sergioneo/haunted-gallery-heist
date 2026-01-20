@@ -78,6 +78,7 @@ class SnowballGame {
         this.initScene();
         this.initControls();
         this.initUI();
+        this.createSnowflakes();
 
         this.clock = new THREE.Clock();
         this.snowballs = [];
@@ -1291,17 +1292,16 @@ class SnowballGame {
         document.getElementById('player-score').textContent = this.state.playerScore;
         document.getElementById('ai-score').textContent = this.state.aiScore;
 
-        // Snowball status
-        const statusEl = document.getElementById('snowball-status');
+        // Snowball indicator
+        const snowballIcon = document.getElementById('snowball-icon');
         if (this.state.hasSnowball) {
-            statusEl.textContent = '❄️ Snowball Ready!';
-            statusEl.style.background = 'rgba(79, 195, 247, 0.8)';
-        } else if (this.state.nearSnow) {
-            statusEl.textContent = '⚪ Near Snow - Roll a Snowball!';
-            statusEl.style.background = 'rgba(255, 255, 255, 0.6)';
+            snowballIcon.classList.remove('empty');
+            snowballIcon.classList.add('loaded');
+            snowballIcon.textContent = '❄️';
         } else {
-            statusEl.textContent = 'Find Snow Patches';
-            statusEl.style.background = 'rgba(0, 0, 0, 0.5)';
+            snowballIcon.classList.remove('loaded');
+            snowballIcon.classList.add('empty');
+            snowballIcon.textContent = '⚪';
         }
 
         // Button states
@@ -1699,9 +1699,17 @@ class SnowballGame {
                 continue;
             }
 
+            // Check ground collision
+            if (snowball.mesh.position.y <= 0) {
+                this.createExplosion(new THREE.Vector3(snowball.mesh.position.x, 0, snowball.mesh.position.z), 0.8);
+                this.scene.remove(snowball.mesh);
+                this.snowballs.splice(i, 1);
+                continue;
+            }
+
             // Remove if lifetime expired or out of bounds
             if (snowball.lifetime <= 0 || Math.abs(snowball.mesh.position.x) > 50 ||
-                Math.abs(snowball.mesh.position.z) > 50 || snowball.mesh.position.y < 0) {
+                Math.abs(snowball.mesh.position.z) > 50) {
                 this.scene.remove(snowball.mesh);
                 this.snowballs.splice(i, 1);
             }
@@ -1735,6 +1743,7 @@ class SnowballGame {
             if (distToPlayer < 1) {
                 this.state.addAIScore();
                 this.createExplosion(snowball.mesh.position, 1.2);
+                this.showHitFlash();
                 this.scene.remove(snowball.mesh);
                 this.aiSnowballs.splice(i, 1);
                 this.updateUI();
@@ -1744,9 +1753,17 @@ class SnowballGame {
                 continue;
             }
 
+            // Check ground collision
+            if (snowball.mesh.position.y <= 0) {
+                this.createExplosion(new THREE.Vector3(snowball.mesh.position.x, 0, snowball.mesh.position.z), 0.8);
+                this.scene.remove(snowball.mesh);
+                this.aiSnowballs.splice(i, 1);
+                continue;
+            }
+
             // Remove if lifetime expired or out of bounds
             if (snowball.lifetime <= 0 || Math.abs(snowball.mesh.position.x) > 50 ||
-                Math.abs(snowball.mesh.position.z) > 50 || snowball.mesh.position.y < 0) {
+                Math.abs(snowball.mesh.position.z) > 50) {
                 this.scene.remove(snowball.mesh);
                 this.aiSnowballs.splice(i, 1);
             }
@@ -1813,6 +1830,48 @@ class SnowballGame {
 
         finalScore.textContent = `Final Score: ${this.state.playerScore} - ${this.state.aiScore}`;
         gameOverScreen.classList.remove('hidden');
+    }
+
+    showHitFlash() {
+        const flash = document.getElementById('hit-flash');
+        flash.classList.add('show');
+        setTimeout(() => {
+            flash.classList.remove('show');
+        }, 200);
+    }
+
+    createSnowflakes() {
+        const container = document.getElementById('snowflakes');
+        if (!container) return;
+
+        // Clear existing snowflakes
+        container.innerHTML = '';
+
+        // Create 50 snowflakes
+        for (let i = 0; i < 50; i++) {
+            const snowflake = document.createElement('div');
+            snowflake.className = 'snowflake';
+            snowflake.textContent = '❄';
+
+            // Random horizontal position
+            snowflake.style.left = Math.random() * 100 + '%';
+
+            // Random size
+            const size = 0.5 + Math.random() * 1;
+            snowflake.style.fontSize = size + 'em';
+
+            // Random animation duration (10-20 seconds)
+            const duration = 10 + Math.random() * 10;
+            snowflake.style.animationDuration = duration + 's';
+
+            // Random delay
+            snowflake.style.animationDelay = Math.random() * 5 + 's';
+
+            // Random opacity
+            snowflake.style.opacity = 0.3 + Math.random() * 0.7;
+
+            container.appendChild(snowflake);
+        }
     }
 
     restart() {

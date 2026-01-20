@@ -46,9 +46,14 @@
                 </div>
             </div>
 
-            <div id="snowball-status">No Snowball</div>
-            <div id="hit-message"></div>
+            <!-- Snowball Indicator -->
+            <div id="snowball-indicator">
+                <div id="snowball-icon" class="empty">⚪</div>
+            </div>
         </div>
+
+        <!-- Hit Flash Effect -->
+        <div id="hit-flash"></div>
 
         <!-- Controls -->
         <div id="controls">
@@ -60,8 +65,12 @@
 
             <!-- Action Buttons -->
             <div id="action-buttons">
-                <button id="roll-btn" class="action-btn" disabled>ROLL<br>SNOWBALL</button>
-                <button id="throw-btn" class="action-btn" disabled>THROW</button>
+                <button id="roll-btn" class="action-btn" disabled>
+                    <span class="btn-icon">⚪</span>
+                </button>
+                <button id="throw-btn" class="action-btn" disabled>
+                    <span class="btn-icon">❄️</span>
+                </button>
             </div>
         </div>
 
@@ -78,17 +87,18 @@
         <!-- Start Screen -->
         <div id="start-screen">
             <div class="overlay"></div>
+            <div id="snowflakes"></div>
             <div class="start-content">
                 <h1>❄️ SNOWBALL SHOWDOWN ❄️</h1>
                 <p class="instructions">
-                    Find snowmen to roll snowballs<br>
-                    Camera auto-aims at your opponent<br>
+                    Find snowmen and snow hills to collect snowballs<br>
+                    Hold throw button longer for more power!<br>
                     <strong>First to 10 hits wins!</strong>
                 </p>
                 <div class="controls-info">
-                    <p>🕹️ Left joystick: Move around</p>
+                    <p>🕹️ Joystick: Move around</p>
                     <p>👁️ Camera: Auto-tracks opponent</p>
-                    <p>🎯 Buttons: Roll & Throw</p>
+                    <p>🎯 Hold THROW for power charge</p>
                 </div>
                 <button id="start-btn" class="main-btn">START GAME</button>
             </div>
