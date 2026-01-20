@@ -161,15 +161,21 @@ class MultiplayerManager {
         if (!this.roomRef) return;
 
         const playersRef = this.roomRef.child('players');
-        playersRef.on('value', (snapshot) => {
+
+        // Use 'once' to only fire when player joins, not on every update
+        const checkForPlayer = (snapshot) => {
             const players = snapshot.val() || {};
             const playerIds = Object.keys(players);
 
             if (playerIds.length === 2) {
                 this.opponentId = playerIds.find(id => id !== this.playerId);
                 callback(this.opponentId);
+                // Stop listening after player joined
+                playersRef.off('value', checkForPlayer);
             }
-        });
+        };
+
+        playersRef.on('value', checkForPlayer);
     }
 
     onOpponentPosition(callback) {
