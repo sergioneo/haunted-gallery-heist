@@ -190,6 +190,64 @@ class SnowballGame {
 
         const sky = new THREE.Mesh(skyGeo, skyMat);
         this.scene.add(sky);
+
+        // Add distant mountains with parallax
+        this.createMountains();
+    }
+
+    createMountains() {
+        // Create mountain range in the distance
+        const mountainGroup = new THREE.Group();
+
+        // Create multiple mountain layers for parallax
+        const layers = [
+            { distance: 80, height: 25, color: 0x8899AA, opacity: 0.4 },
+            { distance: 100, height: 30, color: 0x99AABB, opacity: 0.3 },
+            { distance: 120, height: 35, color: 0xAABBCC, opacity: 0.2 }
+        ];
+
+        layers.forEach((layer, layerIndex) => {
+            const mountainCount = 8;
+            for (let i = 0; i < mountainCount; i++) {
+                const angle = (i / mountainCount) * Math.PI * 2;
+                const x = Math.cos(angle) * layer.distance;
+                const z = Math.sin(angle) * layer.distance;
+
+                // Random mountain shape
+                const width = 15 + Math.random() * 10;
+                const height = layer.height + Math.random() * 10;
+
+                const mountainGeometry = new THREE.ConeGeometry(width, height, 4);
+                const mountainMaterial = new THREE.MeshBasicMaterial({
+                    color: layer.color,
+                    transparent: true,
+                    opacity: layer.opacity,
+                    fog: false
+                });
+
+                const mountain = new THREE.Mesh(mountainGeometry, mountainMaterial);
+                mountain.position.set(x, height / 2, z);
+                mountain.rotation.y = Math.random() * Math.PI;
+
+                mountainGroup.add(mountain);
+
+                // Add snow caps
+                const capGeometry = new THREE.ConeGeometry(width * 0.6, height * 0.4, 4);
+                const capMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xFFFFFF,
+                    transparent: true,
+                    opacity: layer.opacity * 1.5,
+                    fog: false
+                });
+                const cap = new THREE.Mesh(capGeometry, capMaterial);
+                cap.position.set(x, height * 0.8, z);
+                cap.rotation.y = Math.random() * Math.PI;
+                mountainGroup.add(cap);
+            }
+        });
+
+        this.scene.add(mountainGroup);
+        this.mountainGroup = mountainGroup;
     }
 
     initScene() {
@@ -290,6 +348,15 @@ class SnowballGame {
 
         // Add decorative snow piles around the map
         this.createSnowPiles();
+
+        // Add rocks scattered around the map
+        this.createRocks();
+
+        // Add wooden fence sections
+        this.createFences();
+
+        // Add snow-covered logs
+        this.createLogs();
 
         // Walls (invisible boundaries)
         this.boundaries = [
@@ -392,6 +459,193 @@ class SnowballGame {
                 smallPile.scale.y = 0.5;
                 this.scene.add(smallPile);
             }
+        });
+    }
+
+    createRocks() {
+        // Add rocks scattered around the map for visual interest
+        const rockPositions = [
+            { x: -8, z: 8, size: 0.6 },
+            { x: 3, z: -7, size: 0.8 },
+            { x: -20, z: -10, size: 0.5 },
+            { x: 18, z: 5, size: 0.7 },
+            { x: -12, z: -20, size: 0.9 },
+            { x: 22, z: -18, size: 0.6 },
+            { x: -25, z: 15, size: 0.8 },
+            { x: 14, z: 15, size: 0.5 },
+            { x: 6, z: -18, size: 0.7 },
+            { x: -18, z: 6, size: 0.6 }
+        ];
+
+        rockPositions.forEach(pos => {
+            // Main rock - irregular shape using dodecahedron
+            const rockGeometry = new THREE.DodecahedronGeometry(pos.size, 0);
+            const rockMaterial = new THREE.MeshStandardMaterial({
+                color: 0x6B7280,  // Gray rock
+                roughness: 0.9,
+                flatShading: true
+            });
+            const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+            rock.position.set(pos.x, pos.size * 0.4, pos.z);
+            rock.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+            rock.scale.set(
+                1 + Math.random() * 0.3,
+                0.7 + Math.random() * 0.3,
+                1 + Math.random() * 0.3
+            );
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            this.scene.add(rock);
+
+            // Snow on top of rock
+            const snowCapGeometry = new THREE.SphereGeometry(pos.size * 0.6, 8, 8);
+            const snowCapMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                roughness: 0.9
+            });
+            const snowCap = new THREE.Mesh(snowCapGeometry, snowCapMaterial);
+            snowCap.position.set(pos.x, pos.size * 0.9, pos.z);
+            snowCap.scale.set(1, 0.4, 1);
+            this.scene.add(snowCap);
+
+            // Add some smaller rocks around
+            for (let i = 0; i < 2; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const radius = pos.size * 1.5;
+                const smallSize = pos.size * 0.3;
+                const smallRock = new THREE.Mesh(
+                    new THREE.DodecahedronGeometry(smallSize, 0),
+                    rockMaterial
+                );
+                smallRock.position.set(
+                    pos.x + Math.cos(angle) * radius,
+                    smallSize * 0.3,
+                    pos.z + Math.sin(angle) * radius
+                );
+                smallRock.rotation.set(
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI
+                );
+                smallRock.castShadow = true;
+                this.scene.add(smallRock);
+            }
+        });
+    }
+
+    createFences() {
+        // Create wooden fence sections for visual detail
+        const fenceMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B6F47,  // Wood brown
+            roughness: 0.9
+        });
+
+        // Fence along one side of the map
+        const fenceSegments = [
+            { x: -30, z: -25, rotation: 0, length: 5 },
+            { x: -25, z: -25, rotation: 0, length: 5 },
+            { x: -20, z: -25, rotation: 0, length: 5 },
+            { x: 25, z: 25, rotation: Math.PI / 2, length: 5 },
+            { x: 25, z: 20, rotation: Math.PI / 2, length: 5 },
+            { x: 25, z: 15, rotation: Math.PI / 2, length: 5 }
+        ];
+
+        fenceSegments.forEach(segment => {
+            const fenceGroup = new THREE.Group();
+
+            // Horizontal rails (2)
+            for (let rail = 0; rail < 2; rail++) {
+                const railGeometry = new THREE.BoxGeometry(segment.length, 0.1, 0.1);
+                const railMesh = new THREE.Mesh(railGeometry, fenceMaterial);
+                railMesh.position.set(0, 0.5 + rail * 0.4, 0);
+                railMesh.castShadow = true;
+                fenceGroup.add(railMesh);
+            }
+
+            // Vertical posts (3)
+            for (let post = 0; post < 3; post++) {
+                const postGeometry = new THREE.BoxGeometry(0.15, 1, 0.15);
+                const postMesh = new THREE.Mesh(postGeometry, fenceMaterial);
+                postMesh.position.set(-segment.length / 2 + post * (segment.length / 2), 0.5, 0);
+                postMesh.castShadow = true;
+                fenceGroup.add(postMesh);
+
+                // Snow on top of posts
+                const snowGeometry = new THREE.BoxGeometry(0.2, 0.1, 0.2);
+                const snowMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+                const snow = new THREE.Mesh(snowGeometry, snowMaterial);
+                snow.position.set(-segment.length / 2 + post * (segment.length / 2), 1, 0);
+                fenceGroup.add(snow);
+            }
+
+            fenceGroup.position.set(segment.x, 0, segment.z);
+            fenceGroup.rotation.y = segment.rotation;
+            this.scene.add(fenceGroup);
+        });
+    }
+
+    createLogs() {
+        // Add fallen logs with snow on them
+        const logPositions = [
+            { x: -18, z: -3, rotation: 0.5, length: 4 },
+            { x: 12, z: -12, rotation: 1.2, length: 3.5 },
+            { x: -6, z: 15, rotation: 0.8, length: 3 },
+            { x: 20, z: -8, rotation: 2.1, length: 3.8 }
+        ];
+
+        logPositions.forEach(pos => {
+            const logGroup = new THREE.Group();
+
+            // Log body
+            const logGeometry = new THREE.CylinderGeometry(0.3, 0.35, pos.length, 8);
+            const logMaterial = new THREE.MeshStandardMaterial({
+                color: 0x654321,
+                roughness: 0.9
+            });
+            const log = new THREE.Mesh(logGeometry, logMaterial);
+            log.rotation.z = Math.PI / 2;
+            log.castShadow = true;
+            log.receiveShadow = true;
+            logGroup.add(log);
+
+            // Snow on top of log
+            const snowGeometry = new THREE.BoxGeometry(pos.length, 0.15, 0.4);
+            const snowMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+            const snow = new THREE.Mesh(snowGeometry, snowMaterial);
+            snow.position.set(0, 0.25, 0);
+            snow.rotation.z = Math.PI / 2;
+            logGroup.add(snow);
+
+            // Wood rings on ends
+            const ringGeometry = new THREE.RingGeometry(0.1, 0.3, 16);
+            const ringMaterial = new THREE.MeshStandardMaterial({
+                color: 0x8B6F47,
+                side: THREE.DoubleSide
+            });
+
+            const ring1 = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring1.position.set(pos.length / 2, 0, 0);
+            ring1.rotation.y = Math.PI / 2;
+            logGroup.add(ring1);
+
+            const ring2 = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring2.position.set(-pos.length / 2, 0, 0);
+            ring2.rotation.y = Math.PI / 2;
+            logGroup.add(ring2);
+
+            logGroup.position.set(pos.x, 0.3, pos.z);
+            logGroup.rotation.y = pos.rotation;
+            this.scene.add(logGroup);
+
+            // Add as obstacle for collision
+            this.obstacles.push({
+                position: new THREE.Vector3(pos.x, 0, pos.z),
+                radius: 0.5
+            });
         });
     }
 
@@ -748,103 +1002,145 @@ class SnowballGame {
     }
 
     createAI() {
-        // Create AI as a snowman (enemy snowman)
-        this.aiSnowman = new THREE.Group();
-        const snowMaterial = new THREE.MeshStandardMaterial({
-            color: 0xFFFFFF,
+        // Create AI as a person character
+        this.aiCharacter = new THREE.Group();
+
+        // Materials
+        const skinMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFDBAC,  // Skin tone
+            roughness: 0.7
+        });
+        const clothesMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2C3E50,  // Dark blue/gray clothes
+            roughness: 0.8
+        });
+        const pantsMaterial = new THREE.MeshStandardMaterial({
+            color: 0x34495E,  // Darker pants
+            roughness: 0.9
+        });
+        const hairMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3D2817,  // Brown hair
             roughness: 0.9
         });
 
-        // Base snowball
-        const baseGeometry = new THREE.SphereGeometry(0.7, 16, 16);
-        const base = new THREE.Mesh(baseGeometry, snowMaterial);
-        base.position.set(0, 0.7, 0);
-        base.castShadow = true;
-        base.receiveShadow = true;
-        this.aiSnowman.add(base);
+        // Legs
+        const legGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.9, 8);
 
-        // Middle snowball
-        const midGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-        const mid = new THREE.Mesh(midGeometry, snowMaterial);
-        mid.position.set(0, 1.6, 0);
-        mid.castShadow = true;
-        mid.receiveShadow = true;
-        this.aiSnowman.add(mid);
+        const leftLeg = new THREE.Mesh(legGeometry, pantsMaterial);
+        leftLeg.position.set(0.15, 0.45, 0);
+        leftLeg.castShadow = true;
+        this.aiCharacter.add(leftLeg);
 
-        // Head snowball
-        const headGeometry = new THREE.SphereGeometry(0.35, 16, 16);
-        const head = new THREE.Mesh(headGeometry, snowMaterial);
-        head.position.set(0, 2.3, 0);
+        const rightLeg = new THREE.Mesh(legGeometry, pantsMaterial);
+        rightLeg.position.set(-0.15, 0.45, 0);
+        rightLeg.castShadow = true;
+        this.aiCharacter.add(rightLeg);
+
+        // Body/torso
+        const bodyGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.3);
+        const body = new THREE.Mesh(bodyGeometry, clothesMaterial);
+        body.position.set(0, 1.3, 0);
+        body.castShadow = true;
+        body.receiveShadow = true;
+        this.aiCharacter.add(body);
+
+        // Arms
+        const armGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.7, 8);
+
+        const leftArm = new THREE.Mesh(armGeometry, clothesMaterial);
+        leftArm.position.set(0.4, 1.3, 0);
+        leftArm.rotation.z = 0.3;
+        leftArm.castShadow = true;
+        this.aiCharacter.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeometry, clothesMaterial);
+        rightArm.position.set(-0.4, 1.3, 0);
+        rightArm.rotation.z = -0.3;
+        rightArm.castShadow = true;
+        this.aiCharacter.add(rightArm);
+
+        // Hands
+        const handGeometry = new THREE.SphereGeometry(0.12, 8, 8);
+
+        const leftHand = new THREE.Mesh(handGeometry, skinMaterial);
+        leftHand.position.set(0.52, 0.95, 0);
+        leftHand.castShadow = true;
+        this.aiCharacter.add(leftHand);
+
+        const rightHand = new THREE.Mesh(handGeometry, skinMaterial);
+        rightHand.position.set(-0.52, 0.95, 0);
+        rightHand.castShadow = true;
+        this.aiCharacter.add(rightHand);
+
+        // Neck
+        const neckGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.15, 8);
+        const neck = new THREE.Mesh(neckGeometry, skinMaterial);
+        neck.position.set(0, 1.8, 0);
+        this.aiCharacter.add(neck);
+
+        // Head
+        const headGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+        const head = new THREE.Mesh(headGeometry, skinMaterial);
+        head.position.set(0, 2.05, 0);
         head.castShadow = true;
         head.receiveShadow = true;
-        this.aiSnowman.add(head);
+        this.aiCharacter.add(head);
 
-        // Evil red eyes
+        // Hair
+        const hairGeometry = new THREE.SphereGeometry(0.26, 16, 16);
+        const hair = new THREE.Mesh(hairGeometry, hairMaterial);
+        hair.position.set(0, 2.15, 0);
+        hair.scale.set(1, 0.6, 1);
+        hair.castShadow = true;
+        this.aiCharacter.add(hair);
+
+        // Eyes (menacing look)
         const eyeMaterial = new THREE.MeshStandardMaterial({
-            color: 0xFF0000,
+            color: 0xFF3333,
             emissive: 0xFF0000,
-            emissiveIntensity: 0.5
+            emissiveIntensity: 0.3
         });
-        const eyeGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+        const eyeGeometry = new THREE.SphereGeometry(0.05, 8, 8);
 
         const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        leftEye.position.set(0.1, 2.4, 0.3);
-        this.aiSnowman.add(leftEye);
+        leftEye.position.set(0.08, 2.08, 0.22);
+        this.aiCharacter.add(leftEye);
 
         const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        rightEye.position.set(-0.1, 2.4, 0.3);
-        this.aiSnowman.add(rightEye);
+        rightEye.position.set(-0.08, 2.08, 0.22);
+        this.aiCharacter.add(rightEye);
 
-        // Black coal nose
-        const noseGeometry = new THREE.ConeGeometry(0.06, 0.3, 8);
-        const noseMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
-        const nose = new THREE.Mesh(noseGeometry, noseMaterial);
-        nose.position.set(0, 2.3, 0.35);
-        nose.rotation.x = Math.PI / 2;
-        this.aiSnowman.add(nose);
+        // Mouth (angry expression)
+        const mouthGeometry = new THREE.BoxGeometry(0.15, 0.03, 0.02);
+        const mouthMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
+        mouth.position.set(0, 1.92, 0.24);
+        this.aiCharacter.add(mouth);
 
-        // Red scarf
-        const scarfGeometry = new THREE.TorusGeometry(0.55, 0.08, 8, 16);
-        const scarfMaterial = new THREE.MeshStandardMaterial({ color: 0xFF0000 });
-        const scarf = new THREE.Mesh(scarfGeometry, scarfMaterial);
-        scarf.position.set(0, 1.4, 0);
-        scarf.rotation.x = Math.PI / 2;
-        this.aiSnowman.add(scarf);
+        // Beanie/winter hat
+        const beanieGeometry = new THREE.SphereGeometry(0.27, 16, 16);
+        const beanieMaterial = new THREE.MeshStandardMaterial({
+            color: 0xC41E3A,  // Red beanie
+            roughness: 0.9
+        });
+        const beanie = new THREE.Mesh(beanieGeometry, beanieMaterial);
+        beanie.position.set(0, 2.2, 0);
+        beanie.scale.set(1, 0.7, 1);
+        beanie.castShadow = true;
+        this.aiCharacter.add(beanie);
 
-        // Stick arms
-        const armMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
-        const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.8, 8);
+        // Pompom on beanie
+        const pompomGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+        const pompomMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+        const pompom = new THREE.Mesh(pompomGeometry, pompomMaterial);
+        pompom.position.set(0, 2.4, 0);
+        this.aiCharacter.add(pompom);
 
-        const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-        leftArm.position.set(0.6, 1.6, 0);
-        leftArm.rotation.z = -Math.PI / 3;
-        leftArm.castShadow = true;
-        this.aiSnowman.add(leftArm);
-
-        const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-        rightArm.position.set(-0.6, 1.6, 0);
-        rightArm.rotation.z = Math.PI / 3;
-        rightArm.castShadow = true;
-        this.aiSnowman.add(rightArm);
-
-        // Top hat (villain hat)
-        const hatBrimGeometry = new THREE.CylinderGeometry(0.45, 0.45, 0.08, 16);
-        const hatMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
-        const hatBrim = new THREE.Mesh(hatBrimGeometry, hatMaterial);
-        hatBrim.position.set(0, 2.65, 0);
-        this.aiSnowman.add(hatBrim);
-
-        const hatTopGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.5, 16);
-        const hatTop = new THREE.Mesh(hatTopGeometry, hatMaterial);
-        hatTop.position.set(0, 2.95, 0);
-        hatTop.castShadow = true;
-        this.aiSnowman.add(hatTop);
-
-        this.aiSnowman.position.set(20, 0, 20);
-        this.scene.add(this.aiSnowman);
+        this.aiCharacter.position.set(20, 0, 20);
+        this.scene.add(this.aiCharacter);
 
         // Store reference for easy access
-        this.ai = this.aiSnowman;
+        this.ai = this.aiCharacter;
 
         // AI state
         this.aiState = {
@@ -1111,6 +1407,19 @@ class SnowballGame {
         if (this.houseCollision) {
             if (position.x > this.houseCollision.min.x && position.x < this.houseCollision.max.x &&
                 position.z > this.houseCollision.min.z && position.z < this.houseCollision.max.z) {
+                return true;
+            }
+        }
+
+        // Check obstacle collisions (bushes, snowmen, trees)
+        for (const obstacle of this.obstacles) {
+            const dist = new THREE.Vector2(
+                position.x - obstacle.position.x,
+                position.z - obstacle.position.z
+            ).length();
+
+            // Use slightly larger radius for character collision than snowball collision
+            if (dist < obstacle.radius + 0.3) {
                 return true;
             }
         }
