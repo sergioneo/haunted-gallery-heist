@@ -199,19 +199,19 @@ class SnowballGame {
         snowPositions.forEach((pos, index) => {
             this.createSnowman(pos.x, pos.z, index);
             this.snowPatches.push(new THREE.Vector3(pos.x, 0, pos.z));
-            // Add snowman as obstacle for snowball collision
+            // Add snowman as obstacle for snowball collision (tighter radius)
             this.obstacles.push({
                 position: new THREE.Vector3(pos.x, 0, pos.z),
-                radius: 1.5
+                radius: 0.9  // Reduced from 1.5 for more precise collision
             });
         });
 
         // House
         this.createHouse(-15, -15);
-        // Add house as obstacle
+        // Add house as obstacle (tighter radius)
         this.obstacles.push({
             position: new THREE.Vector3(-15, 0, -15),
-            radius: 7
+            radius: 5  // Reduced from 7 for better gameplay
         });
 
         // Bushes
@@ -226,7 +226,7 @@ class SnowballGame {
             this.createBush(pos.x, pos.z, color);
             this.obstacles.push({
                 position: new THREE.Vector3(pos.x, 0, pos.z),
-                radius: 2
+                radius: 1.3  // Reduced from 2 for tighter collision
             });
         });
 
@@ -241,7 +241,7 @@ class SnowballGame {
             this.createTree(pos.x, pos.z);
             this.obstacles.push({
                 position: new THREE.Vector3(pos.x, 0, pos.z),
-                radius: 2
+                radius: 0.8  // Reduced from 2 for trunk-only collision
             });
         });
 
@@ -1074,7 +1074,7 @@ class SnowballGame {
                 );
 
                 this.aiState.position.copy(newPosition);
-                this.ai.position.set(newPosition.x, 1, newPosition.z);
+                this.ai.position.set(newPosition.x, 0, newPosition.z);
 
                 // Check if reached snow
                 const distance = this.aiState.position.distanceTo(this.aiState.targetSnowPatch);
@@ -1108,6 +1108,15 @@ class SnowballGame {
                 this.ai.position.set(newPosition.x, 0, newPosition.z);
             }
         }
+
+        // Make AI snowman always face the player
+        const dirToPlayer = new THREE.Vector3(
+            this.playerPosition.x - this.aiState.position.x,
+            0,
+            this.playerPosition.z - this.aiState.position.z
+        );
+        const angleToPlayer = Math.atan2(dirToPlayer.x, dirToPlayer.z);
+        this.ai.rotation.y = angleToPlayer;
     }
 
     aiShoot() {
