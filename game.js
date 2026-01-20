@@ -192,50 +192,9 @@ class SnowballGame {
             { x: 8, z: 12 }
         ];
 
-        snowPositions.forEach(pos => {
-            // Create a mound of snow (elevated)
-            const moundGeometry = new THREE.CylinderGeometry(2.5, 3, 0.4, 32);
-            const moundMaterial = new THREE.MeshStandardMaterial({
-                color: 0xFFFFFF,
-                roughness: 0.95,
-                metalness: 0
-            });
-            const mound = new THREE.Mesh(moundGeometry, moundMaterial);
-            mound.position.set(pos.x, 0.2, pos.z);
-            mound.castShadow = true;
-            mound.receiveShadow = true;
-            this.scene.add(mound);
-
-            // Add sparkly top layer
-            const topGeometry = new THREE.CircleGeometry(2.3, 32);
-            const topMaterial = new THREE.MeshStandardMaterial({
-                color: 0xFFFFFF,
-                roughness: 0.3,
-                metalness: 0.4,
-                emissive: 0xEEEEFF,
-                emissiveIntensity: 0.1
-            });
-            const top = new THREE.Mesh(topGeometry, topMaterial);
-            top.rotation.x = -Math.PI / 2;
-            top.position.set(pos.x, 0.41, pos.z);
-            this.scene.add(top);
-
-            // Add small snowballs on the mound for detail
-            for (let i = 0; i < 5; i++) {
-                const smallSnowball = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.1 + Math.random() * 0.1, 8, 8),
-                    new THREE.MeshStandardMaterial({ color: 0xFFFFFF })
-                );
-                const angle = (i / 5) * Math.PI * 2;
-                const radius = 1.5 + Math.random() * 0.8;
-                smallSnowball.position.set(
-                    pos.x + Math.cos(angle) * radius,
-                    0.3,
-                    pos.z + Math.sin(angle) * radius
-                );
-                this.scene.add(smallSnowball);
-            }
-
+        // Create snowmen at each position with varying styles
+        snowPositions.forEach((pos, index) => {
+            this.createSnowman(pos.x, pos.z, index);
             this.snowPatches.push(new THREE.Vector3(pos.x, 0, pos.z));
         });
 
@@ -359,6 +318,154 @@ class SnowballGame {
                 this.scene.add(smallPile);
             }
         });
+    }
+
+    createSnowman(x, z, index) {
+        // Vary the snowman styles based on index
+        const styles = [
+            { baseSize: 0.8, midSize: 0.6, headSize: 0.4, height: 0 },
+            { baseSize: 1.0, midSize: 0.75, headSize: 0.5, height: 0 },
+            { baseSize: 0.7, midSize: 0.5, headSize: 0.35, height: 0 },
+            { baseSize: 1.1, midSize: 0.85, headSize: 0.6, height: 0 },
+            { baseSize: 0.9, midSize: 0.65, headSize: 0.45, height: 0 },
+            { baseSize: 0.85, midSize: 0.7, headSize: 0.5, height: 0 }
+        ];
+
+        const style = styles[index % styles.length];
+        const snowMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            roughness: 0.9
+        });
+
+        // Base snowball
+        const baseGeometry = new THREE.SphereGeometry(style.baseSize, 16, 16);
+        const base = new THREE.Mesh(baseGeometry, snowMaterial);
+        base.position.set(x, style.baseSize, z);
+        base.castShadow = true;
+        base.receiveShadow = true;
+        this.scene.add(base);
+
+        // Middle snowball
+        const midGeometry = new THREE.SphereGeometry(style.midSize, 16, 16);
+        const mid = new THREE.Mesh(midGeometry, snowMaterial);
+        mid.position.set(x, style.baseSize * 2 + style.midSize * 0.8, z);
+        mid.castShadow = true;
+        mid.receiveShadow = true;
+        this.scene.add(mid);
+
+        // Head snowball
+        const headGeometry = new THREE.SphereGeometry(style.headSize, 16, 16);
+        const head = new THREE.Mesh(headGeometry, snowMaterial);
+        head.position.set(x, style.baseSize * 2 + style.midSize * 1.6 + style.headSize * 0.9, z);
+        head.castShadow = true;
+        head.receiveShadow = true;
+        this.scene.add(head);
+
+        // Eyes (coal)
+        const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const eyeGeometry = new THREE.SphereGeometry(0.06, 8, 8);
+
+        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        leftEye.position.set(
+            x + style.headSize * 0.3,
+            style.baseSize * 2 + style.midSize * 1.6 + style.headSize * 1.1,
+            z + style.headSize * 0.8
+        );
+        this.scene.add(leftEye);
+
+        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        rightEye.position.set(
+            x - style.headSize * 0.3,
+            style.baseSize * 2 + style.midSize * 1.6 + style.headSize * 1.1,
+            z + style.headSize * 0.8
+        );
+        this.scene.add(rightEye);
+
+        // Carrot nose
+        const noseGeometry = new THREE.ConeGeometry(0.08, 0.4, 8);
+        const noseMaterial = new THREE.MeshStandardMaterial({ color: 0xFF8C00 });
+        const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+        nose.position.set(
+            x,
+            style.baseSize * 2 + style.midSize * 1.6 + style.headSize * 0.9,
+            z + style.headSize * 0.9
+        );
+        nose.rotation.x = Math.PI / 2;
+        this.scene.add(nose);
+
+        // Coal buttons on middle section
+        for (let i = 0; i < 3; i++) {
+            const button = new THREE.Mesh(
+                new THREE.SphereGeometry(0.08, 8, 8),
+                eyeMaterial
+            );
+            button.position.set(
+                x,
+                style.baseSize * 2 + style.midSize * 1.2 - i * style.midSize * 0.4,
+                z + style.midSize * 0.9
+            );
+            this.scene.add(button);
+        }
+
+        // Stick arms (different poses)
+        const armMaterial = new THREE.MeshStandardMaterial({ color: 0x654321 });
+        const armGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 8);
+
+        const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+        leftArm.position.set(
+            x + style.midSize * 0.9,
+            style.baseSize * 2 + style.midSize,
+            z
+        );
+        leftArm.rotation.z = -Math.PI / 3 - (index * 0.2);
+        leftArm.castShadow = true;
+        this.scene.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+        rightArm.position.set(
+            x - style.midSize * 0.9,
+            style.baseSize * 2 + style.midSize,
+            z
+        );
+        rightArm.rotation.z = Math.PI / 3 + (index * 0.2);
+        rightArm.castShadow = true;
+        this.scene.add(rightArm);
+
+        // Hat (varies by index)
+        if (index % 3 === 0) {
+            // Top hat
+            const hatBrimGeometry = new THREE.CylinderGeometry(style.headSize * 1.2, style.headSize * 1.2, 0.1, 16);
+            const hatMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+            const hatBrim = new THREE.Mesh(hatBrimGeometry, hatMaterial);
+            hatBrim.position.set(x, style.baseSize * 2 + style.midSize * 1.6 + style.headSize * 1.8, z);
+            this.scene.add(hatBrim);
+
+            const hatTopGeometry = new THREE.CylinderGeometry(style.headSize * 0.7, style.headSize * 0.7, 0.6, 16);
+            const hatTop = new THREE.Mesh(hatTopGeometry, hatMaterial);
+            hatTop.position.set(x, style.baseSize * 2 + style.midSize * 1.6 + style.headSize * 1.8 + 0.35, z);
+            this.scene.add(hatTop);
+        } else if (index % 3 === 1) {
+            // Bucket hat
+            const bucketGeometry = new THREE.CylinderGeometry(style.headSize * 0.9, style.headSize * 1.1, 0.8, 8);
+            const bucketMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 });
+            const bucket = new THREE.Mesh(bucketGeometry, bucketMaterial);
+            bucket.position.set(x, style.baseSize * 2 + style.midSize * 1.6 + style.headSize * 1.7, z);
+            this.scene.add(bucket);
+        } else {
+            // Santa hat
+            const santaHatGeometry = new THREE.ConeGeometry(style.headSize * 0.8, 1, 16);
+            const santaHatMaterial = new THREE.MeshStandardMaterial({ color: 0xDC143C });
+            const santaHat = new THREE.Mesh(santaHatGeometry, santaHatMaterial);
+            santaHat.position.set(x, style.baseSize * 2 + style.midSize * 1.6 + style.headSize * 1.8, z);
+            santaHat.rotation.z = 0.3;
+            this.scene.add(santaHat);
+
+            const pompomGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+            const pompomMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+            const pompom = new THREE.Mesh(pompomGeometry, pompomMaterial);
+            pompom.position.set(x + 0.3, style.baseSize * 2 + style.midSize * 1.6 + style.headSize * 2.5, z);
+            this.scene.add(pompom);
+        }
     }
 
     createHouse(x, z) {
@@ -639,46 +746,6 @@ class SnowballGame {
         joystickContainer.addEventListener('touchend', endJoystick);
         joystickContainer.addEventListener('touchcancel', endJoystick);
 
-        // Camera control (drag to look)
-        this.lookControl = {
-            active: false,
-            lastX: 0,
-            lastY: 0
-        };
-
-        this.canvas.addEventListener('touchstart', (e) => {
-            // Only use touches outside joystick area for camera control
-            const touch = e.touches[0];
-            const rect = joystickContainer.getBoundingClientRect();
-
-            if (touch.clientX < rect.right || touch.clientY < rect.top) {
-                this.lookControl.active = true;
-                this.lookControl.lastX = touch.clientX;
-                this.lookControl.lastY = touch.clientY;
-            }
-        });
-
-        this.canvas.addEventListener('touchmove', (e) => {
-            if (!this.lookControl.active) return;
-
-            const touch = e.touches[0];
-            const deltaX = touch.clientX - this.lookControl.lastX;
-            const deltaY = touch.clientY - this.lookControl.lastY;
-
-            this.cameraRotation.yaw -= deltaX * CONFIG.CAMERA_SENSITIVITY;
-            this.cameraRotation.pitch -= deltaY * CONFIG.CAMERA_SENSITIVITY;
-
-            // Clamp pitch
-            this.cameraRotation.pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.cameraRotation.pitch));
-
-            this.lookControl.lastX = touch.clientX;
-            this.lookControl.lastY = touch.clientY;
-        });
-
-        this.canvas.addEventListener('touchend', () => {
-            this.lookControl.active = false;
-        });
-
         // Action buttons
         document.getElementById('roll-btn').addEventListener('click', () => {
             this.rollSnowball();
@@ -742,17 +809,12 @@ class SnowballGame {
 
         this.state.hasSnowball = false;
 
-        // Create snowball
-        const direction = new THREE.Vector3(
-            -Math.sin(this.cameraRotation.yaw) * Math.cos(this.cameraRotation.pitch),
-            Math.sin(this.cameraRotation.pitch),
-            -Math.cos(this.cameraRotation.yaw) * Math.cos(this.cameraRotation.pitch)
-        );
+        // Auto-aim at AI opponent
+        const throwPosition = this.playerPosition.clone().add(new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT, 0));
+        const aiTargetPos = this.aiState.position.clone().add(new THREE.Vector3(0, 1, 0));
+        const direction = aiTargetPos.sub(throwPosition).normalize();
 
-        const snowball = this.createSnowballObject(
-            this.playerPosition.clone().add(new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT, 0)),
-            direction
-        );
+        const snowball = this.createSnowballObject(throwPosition, direction);
 
         this.snowballs.push(snowball);
         this.updateUI();
@@ -780,26 +842,25 @@ class SnowballGame {
     updatePlayer(delta) {
         if (!this.state.gameStarted || this.state.gameOver) return;
 
-        // Movement from joystick
+        // Movement from joystick (relative to camera direction to AI)
         if (this.joystick.active) {
-            const forward = new THREE.Vector3(
-                -Math.sin(this.cameraRotation.yaw),
+            // Calculate direction to AI for relative movement
+            const dirToAI = new THREE.Vector3(
+                this.aiState.position.x - this.playerPosition.x,
                 0,
-                -Math.cos(this.cameraRotation.yaw)
-            );
+                this.aiState.position.z - this.playerPosition.z
+            ).normalize();
 
-            const right = new THREE.Vector3(
-                Math.cos(this.cameraRotation.yaw),
-                0,
-                -Math.sin(this.cameraRotation.yaw)
-            );
+            // Forward is towards AI, right is perpendicular
+            const forward = dirToAI;
+            const right = new THREE.Vector3(-dirToAI.z, 0, dirToAI.x);
 
             const moveX = this.joystick.currentX / 40;
             const moveZ = -this.joystick.currentY / 40;
 
             const movement = new THREE.Vector3();
-            movement.add(forward.multiplyScalar(moveZ));
-            movement.add(right.multiplyScalar(moveX));
+            movement.add(forward.clone().multiplyScalar(moveZ));
+            movement.add(right.clone().multiplyScalar(moveX));
 
             if (movement.length() > 0) {
                 movement.normalize();
@@ -821,10 +882,13 @@ class SnowballGame {
             this.playerPosition.z
         );
 
-        // Update camera rotation
-        this.camera.rotation.order = 'YXZ';
-        this.camera.rotation.y = this.cameraRotation.yaw;
-        this.camera.rotation.x = this.cameraRotation.pitch;
+        // Auto-aim camera at AI opponent
+        const aiTargetPosition = new THREE.Vector3(
+            this.aiState.position.x,
+            this.aiState.position.y + 1,  // Aim at AI center
+            this.aiState.position.z
+        );
+        this.camera.lookAt(aiTargetPosition);
 
         // Check if near snow
         this.state.nearSnow = false;
