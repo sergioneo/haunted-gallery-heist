@@ -1240,9 +1240,36 @@ class SnowballGame {
             this.rollSnowball();
         });
 
-        document.getElementById('throw-btn').addEventListener('click', () => {
-            this.throwSnowball();
-        });
+        // Throw button with charge mechanic
+        const throwBtn = document.getElementById('throw-btn');
+        this.throwChargeStart = 0;
+        this.throwChargeLevel = 0;
+        this.isCharging = false;
+
+        const startCharge = (e) => {
+            if (!this.state.hasSnowball || this.state.gameOver) return;
+            e.preventDefault();
+            this.throwChargeStart = Date.now();
+            this.isCharging = true;
+            throwBtn.style.transform = 'scale(1)';
+        };
+
+        const endCharge = (e) => {
+            if (!this.isCharging) return;
+            e.preventDefault();
+            this.isCharging = false;
+            const chargeDuration = Date.now() - this.throwChargeStart;
+            this.throwChargeLevel = Math.min(chargeDuration / 1000, 2); // Max 2 seconds
+            this.throwSnowball(this.throwChargeLevel);
+            throwBtn.style.transform = 'scale(1)';
+            throwBtn.style.background = '';
+        };
+
+        throwBtn.addEventListener('touchstart', startCharge);
+        throwBtn.addEventListener('touchend', endCharge);
+        throwBtn.addEventListener('touchcancel', endCharge);
+        throwBtn.addEventListener('mousedown', startCharge);
+        throwBtn.addEventListener('mouseup', endCharge);
     }
 
     initUI() {
@@ -1293,7 +1320,7 @@ class SnowballGame {
         }
     }
 
-    throwSnowball() {
+    throwSnowball(chargeLevel = 0.5) {
         if (!this.state.hasSnowball) return;
 
         this.state.hasSnowball = false;
@@ -1303,14 +1330,18 @@ class SnowballGame {
         const aiTargetPos = this.aiState.position.clone().add(new THREE.Vector3(0, 1, 0));
         const direction = aiTargetPos.sub(throwPosition).normalize();
 
-        const snowball = this.createSnowballObject(throwPosition, direction);
+        // Calculate power multiplier (0.5x to 2.5x based on charge)
+        // chargeLevel ranges from 0 to 2 seconds
+        const powerMultiplier = 0.5 + (chargeLevel * 1.0); // 0.5x at instant, 2.5x at max charge
+
+        const snowball = this.createSnowballObject(throwPosition, direction, powerMultiplier);
 
         this.snowballs.push(snowball);
         this.updateUI();
         // Removed distracting message
     }
 
-    createSnowballObject(position, direction) {
+    createSnowballObject(position, direction, powerMultiplier = 1.0) {
         const geometry = new THREE.SphereGeometry(CONFIG.SNOWBALL_SIZE, 16, 16);
         const material = new THREE.MeshStandardMaterial({
             color: 0xFFFFFF,
@@ -1322,8 +1353,9 @@ class SnowballGame {
         this.scene.add(mesh);
 
         // Add upward velocity for arc trajectory
-        const velocity = direction.clone().multiplyScalar(CONFIG.SNOWBALL_SPEED);
-        velocity.y += 3;  // Add upward component for arc
+        // Scale both horizontal speed and arc height by power multiplier
+        const velocity = direction.clone().multiplyScalar(CONFIG.SNOWBALL_SPEED * powerMultiplier);
+        velocity.y += 3 * powerMultiplier;  // Add upward component for arc, scaled by power
 
         return {
             mesh: mesh,
@@ -1840,7 +1872,31 @@ class SnowballGame {
         // Always update explosions even if game is paused
         this.updateExplosions(delta);
 
+        // Update charge visual feedback
+        this.updateChargeVisual();
+
         this.renderer.render(this.scene, this.camera);
+    }
+
+    updateChargeVisual() {
+        if (!this.isCharging) return;
+
+        const chargeDuration = Date.now() - this.throwChargeStart;
+        const chargeLevel = Math.min(chargeDuration / 1000, 2); // Max 2 seconds
+        const chargePercent = chargeLevel / 2; // 0 to 1
+
+        const throwBtn = document.getElementById('throw-btn');
+
+        // Scale button from 1.0 to 1.2
+        const scale = 1.0 + (chargePercent * 0.2);
+        throwBtn.style.transform = `scale(${scale})`;
+
+        // Color gradient from blue to red
+        const red = Math.floor(79 + (chargePercent * 176)); // 79 to 255
+        const green = Math.floor(195 - (chargePercent * 115)); // 195 to 80
+        const blue = Math.floor(247 - (chargePercent * 167)); // 247 to 80
+
+        throwBtn.style.background = `linear-gradient(135deg, rgb(${red}, ${green}, ${blue}) 0%, rgb(${red - 30}, ${green - 30}, ${blue - 30}) 100%)`;
     }
 }
 
