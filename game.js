@@ -1707,6 +1707,14 @@ class SnowballGame {
             document.getElementById('start-screen').classList.add('hidden');
             this.state.gameStarted = true;
 
+            // Update opponent label based on game mode
+            const opponentLabel = document.getElementById('opponent-label');
+            if (this.gameMode === 'multiplayer') {
+                opponentLabel.textContent = 'OPPONENT';
+            } else {
+                opponentLabel.textContent = 'AI';
+            }
+
             // Mark player as ready in multiplayer
             if (this.gameMode === 'multiplayer' && this.multiplayer) {
                 this.multiplayer.setReady();
@@ -2183,16 +2191,16 @@ class SnowballGame {
         const distanceToPlayer = this.aiState.position.distanceTo(this.playerPosition);
 
         // SMART FEATURE 1: Distance-based charging
-        // Far away = high charge (2.0), close = low charge (0.5)
-        let chargeLevel = 0.5;
+        // Reduced charge levels - was overshooting player
+        let chargeLevel = 0.3;
         if (distanceToPlayer > 25) {
-            chargeLevel = 2.0; // Max charge for far shots
+            chargeLevel = 1.2; // Reduced from 2.0
         } else if (distanceToPlayer > 15) {
-            chargeLevel = 1.5; // High charge for medium distance
+            chargeLevel = 0.9; // Reduced from 1.5
         } else if (distanceToPlayer > 8) {
-            chargeLevel = 1.0; // Medium charge
+            chargeLevel = 0.6; // Reduced from 1.0
         } else {
-            chargeLevel = 0.5; // Quick shots when close
+            chargeLevel = 0.3; // Reduced from 0.5
         }
 
         const powerMultiplier = 0.5 + (chargeLevel * 1.0);
@@ -2200,11 +2208,12 @@ class SnowballGame {
         // SMART FEATURE 2: Lead targeting - predict where player will be
         const timeToHit = distanceToPlayer / (CONFIG.SNOWBALL_SPEED * powerMultiplier);
         const predictedPlayerPos = this.playerPosition.clone().add(
-            this.aiState.playerVelocity.clone().multiplyScalar(timeToHit)
+            this.aiState.playerVelocity.clone().multiplyScalar(timeToHit * 0.7) // Reduced prediction by 30%
         );
 
-        // Aim at predicted position
-        let direction = predictedPlayerPos.clone()
+        // Aim at predicted position (at player center height)
+        const targetHeight = new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT / 2, 0);
+        let direction = predictedPlayerPos.clone().add(targetHeight)
             .sub(this.aiState.position)
             .normalize();
 
@@ -2335,7 +2344,7 @@ class SnowballGame {
             const distToPlayer = snowball.mesh.position.distanceTo(
                 this.playerPosition.clone().add(new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT / 2, 0))
             );
-            if (distToPlayer < 1) {
+            if (distToPlayer < 1.2) { // Increased from 1.0 for easier hits
                 this.state.addAIScore();
                 this.createExplosion(snowball.mesh.position, 1.2);
                 this.showHitFlash();
@@ -2476,6 +2485,14 @@ class SnowballGame {
         // Reset state
         this.state.reset();
         this.state.gameStarted = true;
+
+        // Update opponent label based on game mode
+        const opponentLabel = document.getElementById('opponent-label');
+        if (this.gameMode === 'multiplayer') {
+            opponentLabel.textContent = 'OPPONENT';
+        } else {
+            opponentLabel.textContent = 'AI';
+        }
 
         // Reset player
         this.playerPosition.set(0, 0, 0);
