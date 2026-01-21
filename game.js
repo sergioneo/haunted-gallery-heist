@@ -1482,7 +1482,9 @@ class SnowballGame {
             lastPlayerPosition: this.playerPosition.clone(),
             playerVelocity: new THREE.Vector3(),
             dodgeDirection: null,
-            isDodging: false
+            isDodging: false,
+            stuckTimer: 0,
+            lastPosition: new THREE.Vector3(20, 0, 20)
         };
     }
 
@@ -1665,10 +1667,10 @@ class SnowballGame {
     setupMultiplayerSync() {
         if (!this.multiplayer) return;
 
-        // Sync opponent position
+        // Sync opponent position (store as target for interpolation)
         this.multiplayer.onOpponentPosition((position) => {
-            if (this.opponent) {
-                this.opponent.position.set(position.x, position.y, position.z);
+            if (this.opponentTargetPosition) {
+                this.opponentTargetPosition.set(position.x, position.y, position.z);
             }
         });
 
@@ -1699,6 +1701,10 @@ class SnowballGame {
     createOpponentCharacter() {
         // Create the opponent character (same as AI character)
         this.opponent = this.aiCharacter;  // Reuse the AI character as opponent
+
+        // Add interpolation target for smooth movement
+        this.opponentTargetPosition = new THREE.Vector3();
+        this.opponentTargetPosition.copy(this.opponent.position);
     }
 
     initUI() {
@@ -1974,6 +1980,15 @@ class SnowballGame {
         return false;
     }
 
+    updateOpponentPosition(delta) {
+        // Smoothly interpolate opponent position for multiplayer
+        if (!this.opponent || !this.opponentTargetPosition) return;
+
+        // Use lerp for smooth interpolation (20% per frame = smooth but responsive)
+        const lerpFactor = Math.min(delta * 10, 1); // Adaptive based on frame rate
+        this.opponent.position.lerp(this.opponentTargetPosition, lerpFactor);
+    }
+
     checkAndDodgeSnowballs(delta) {
         // SMART FEATURE 4: Dodge incoming snowballs
         let nearestThreat = null;
@@ -2041,6 +2056,35 @@ class SnowballGame {
             .sub(this.aiState.lastPlayerPosition)
             .multiplyScalar(1 / delta);
         this.aiState.lastPlayerPosition.copy(this.playerPosition);
+
+        // Stuck detection - if AI hasn't moved much, it's stuck
+        const distanceMoved = this.aiState.position.distanceTo(this.aiState.lastPosition);
+        if (distanceMoved < 0.1 * delta * 60) { // Expected to move more than this
+            this.aiState.stuckTimer += delta;
+            if (this.aiState.stuckTimer > 2) { // Stuck for 2 seconds
+                // Force AI to pick new target/hiding spot
+                this.aiState.targetSnowPatch = null;
+                this.aiState.currentHidingSpot = this.getRandomHidingSpot();
+                this.aiState.stuckTimer = 0;
+
+                // Move in a random direction to get unstuck
+                const randomDir = new THREE.Vector3(
+                    (Math.random() - 0.5) * 2,
+                    0,
+                    (Math.random() - 0.5) * 2
+                ).normalize();
+                const unstuckPos = this.aiState.position.clone().add(
+                    randomDir.multiplyScalar(2)
+                );
+                if (!this.checkCollision(unstuckPos)) {
+                    this.aiState.position.copy(unstuckPos);
+                    this.ai.position.set(unstuckPos.x, 0, unstuckPos.z);
+                }
+            }
+        } else {
+            this.aiState.stuckTimer = 0;
+        }
+        this.aiState.lastPosition.copy(this.aiState.position);
 
         // SMART FEATURE 4: Dodge incoming snowballs
         // Only dodge if not currently getting snowball
@@ -2539,6 +2583,8 @@ class SnowballGame {
             // Only update AI in AI mode, not in multiplayer
             if (this.gameMode === 'ai') {
                 this.updateAI(delta);
+            } else if (this.gameMode === 'multiplayer') {
+                this.updateOpponentPosition(delta);
             }
             this.updateSnowballs(delta);
         }
