@@ -1814,13 +1814,13 @@ class SnowballGame {
         hitsDisplay.textContent = this.tutorialHits;
 
         if (this.tutorialHits === 0) {
-            stepText.textContent = '🕹️ Use the joystick to move around and find snow piles!';
+            stepText.textContent = 'Move with joystick, find snow piles!';
         } else if (this.tutorialHits === 1) {
-            stepText.textContent = '❄️ Great! Now hold the THROW button to charge your shot!';
+            stepText.textContent = 'Great! Hold THROW button to charge!';
         } else if (this.tutorialHits === 3) {
-            stepText.textContent = '🎯 Awesome! Keep practicing your aim!';
+            stepText.textContent = 'Nice! Keep practicing!';
         } else if (this.tutorialHits === 5) {
-            stepText.textContent = '🎉 Tutorial Complete! You\'re ready to face the AI!';
+            stepText.textContent = '🎉 Complete! Ready for AI!';
             setTimeout(() => {
                 this.exitTutorial();
             }, 2000);
