@@ -1733,6 +1733,9 @@ class SnowballGame {
         this.state.gameStarted = true;
         this.tutorialHits = 0;
 
+        // Hide score display in tutorial mode
+        document.getElementById('score-display').classList.add('hidden');
+
         // Update tutorial step
         this.updateTutorialStep();
 
@@ -1831,6 +1834,9 @@ class SnowballGame {
         // Hide tutorial UI
         document.getElementById('tutorial-ui').classList.add('hidden');
 
+        // Show score display again
+        document.getElementById('score-display').classList.remove('hidden');
+
         // Remove tutorial targets
         this.tutorialTargets.forEach(target => {
             this.scene.remove(target.mesh);
@@ -1856,6 +1862,9 @@ class SnowballGame {
         document.getElementById('start-btn').addEventListener('click', () => {
             document.getElementById('start-screen').classList.add('hidden');
             this.state.gameStarted = true;
+
+            // Show score display for AI and multiplayer modes
+            document.getElementById('score-display').classList.remove('hidden');
 
             // Update opponent label based on game mode
             const opponentLabel = document.getElementById('opponent-label');
