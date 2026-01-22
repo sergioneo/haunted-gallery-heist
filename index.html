@@ -133,6 +133,42 @@
             </div>
         </div>
 
+        <!-- Tutorial Selection Screen -->
+        <div id="tutorial-selection-screen" class="hidden">
+            <div class="overlay"></div>
+            <div class="start-content">
+                <h1>🎯 FIRST TIME PLAYING? 🎯</h1>
+                <p class="instructions">
+                    Learn the basics in a quick tutorial<br>
+                    or jump straight into the action!
+                </p>
+                <div class="mode-buttons">
+                    <button id="play-tutorial-btn" class="mode-btn">
+                        <span class="mode-icon">📚</span>
+                        <span class="mode-label">TUTORIAL</span>
+                    </button>
+                    <button id="skip-tutorial-btn" class="mode-btn">
+                        <span class="mode-icon">⚡</span>
+                        <span class="mode-label">SKIP</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tutorial UI Overlay -->
+        <div id="tutorial-ui" class="hidden">
+            <div class="tutorial-overlay">
+                <div class="tutorial-message" id="tutorial-message">
+                    <h2>🎯 SNOWBALL TUTORIAL 🎯</h2>
+                    <p id="tutorial-step">Use the joystick to move around and find snow piles!</p>
+                    <div class="tutorial-progress">
+                        <span id="tutorial-hits">0</span> / 5 targets hit
+                    </div>
+                </div>
+                <button id="exit-tutorial-btn" class="secondary-btn" style="position: absolute; top: 20px; right: 20px;">EXIT TUTORIAL</button>
+            </div>
+        </div>
+
         <!-- Start Screen (Ready to play) -->
         <div id="start-screen" class="hidden">
             <div class="overlay"></div>

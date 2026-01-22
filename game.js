@@ -367,10 +367,12 @@ class SnowballGame {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.state = new GameState();
-        this.gameMode = null; // 'ai' or 'multiplayer'
+        this.gameMode = null; // 'ai', 'multiplayer', or 'tutorial'
         this.multiplayer = null;
         this.opponent = null;  // For multiplayer mode
         this.positionUpdateThrottle = 0;  // For throttling position updates
+        this.tutorialTargets = [];  // Practice targets for tutorial
+        this.tutorialHits = 0;  // Track tutorial progress
 
         this.initThree();
         this.initScene();
@@ -1584,11 +1586,29 @@ class SnowballGame {
         // Initialize Firebase
         initFirebase();
 
-        // AI Mode button
+        // AI Mode button - show tutorial selection
         document.getElementById('ai-mode-btn').addEventListener('click', () => {
-            this.gameMode = 'ai';
             document.getElementById('mode-screen').classList.add('hidden');
+            document.getElementById('tutorial-selection-screen').classList.remove('hidden');
+        });
+
+        // Play Tutorial button
+        document.getElementById('play-tutorial-btn').addEventListener('click', () => {
+            this.gameMode = 'tutorial';
+            document.getElementById('tutorial-selection-screen').classList.add('hidden');
+            this.startTutorial();
+        });
+
+        // Skip Tutorial button
+        document.getElementById('skip-tutorial-btn').addEventListener('click', () => {
+            this.gameMode = 'ai';
+            document.getElementById('tutorial-selection-screen').classList.add('hidden');
             document.getElementById('start-screen').classList.remove('hidden');
+        });
+
+        // Exit Tutorial button
+        document.getElementById('exit-tutorial-btn').addEventListener('click', () => {
+            this.exitTutorial();
         });
 
         // Multiplayer Mode button
@@ -1705,6 +1725,130 @@ class SnowballGame {
         // Add interpolation target for smooth movement
         this.opponentTargetPosition = new THREE.Vector3();
         this.opponentTargetPosition.copy(this.opponent.position);
+    }
+
+    startTutorial() {
+        // Show tutorial UI
+        document.getElementById('tutorial-ui').classList.remove('hidden');
+        this.state.gameStarted = true;
+        this.tutorialHits = 0;
+
+        // Update tutorial step
+        this.updateTutorialStep();
+
+        // Create practice targets (stationary snowmen)
+        this.createTutorialTargets();
+    }
+
+    createTutorialTargets() {
+        // Create 5 practice targets around the map
+        const targetPositions = [
+            { x: 10, z: 10 },
+            { x: -10, z: 10 },
+            { x: 10, z: -10 },
+            { x: -10, z: -10 },
+            { x: 0, z: 15 }
+        ];
+
+        targetPositions.forEach((pos, index) => {
+            // Create a snowman target (similar to obstacles but marked as tutorial targets)
+            const targetGroup = new THREE.Group();
+
+            // Base
+            const baseGeometry = new THREE.SphereGeometry(0.8, 16, 16);
+            const snowMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                roughness: 0.7
+            });
+            const base = new THREE.Mesh(baseGeometry, snowMaterial);
+            base.position.y = 0.8;
+            base.castShadow = true;
+            base.receiveShadow = true;
+            targetGroup.add(base);
+
+            // Middle
+            const middleGeometry = new THREE.SphereGeometry(0.6, 16, 16);
+            const middle = new THREE.Mesh(middleGeometry, snowMaterial);
+            middle.position.y = 1.8;
+            middle.castShadow = true;
+            middle.receiveShadow = true;
+            targetGroup.add(middle);
+
+            // Head with target marker
+            const headGeometry = new THREE.SphereGeometry(0.4, 16, 16);
+            const head = new THREE.Mesh(headGeometry, snowMaterial);
+            head.position.y = 2.6;
+            head.castShadow = true;
+            head.receiveShadow = true;
+            targetGroup.add(head);
+
+            // Target marker (red circle on head)
+            const targetGeometry = new THREE.RingGeometry(0.2, 0.3, 16);
+            const targetMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFF0000,
+                emissive: 0xFF0000,
+                emissiveIntensity: 0.5,
+                side: THREE.DoubleSide
+            });
+            const targetMarker = new THREE.Mesh(targetGeometry, targetMaterial);
+            targetMarker.position.y = 2.6;
+            targetMarker.position.z = 0.41;
+            targetMarker.rotation.x = 0;
+            targetGroup.add(targetMarker);
+
+            targetGroup.position.set(pos.x, 0, pos.z);
+            this.scene.add(targetGroup);
+
+            this.tutorialTargets.push({
+                mesh: targetGroup,
+                position: new THREE.Vector3(pos.x, 1.3, pos.z), // Center of target
+                hit: false
+            });
+        });
+    }
+
+    updateTutorialStep() {
+        const stepText = document.getElementById('tutorial-step');
+        const hitsDisplay = document.getElementById('tutorial-hits');
+
+        hitsDisplay.textContent = this.tutorialHits;
+
+        if (this.tutorialHits === 0) {
+            stepText.textContent = '🕹️ Use the joystick to move around and find snow piles!';
+        } else if (this.tutorialHits === 1) {
+            stepText.textContent = '❄️ Great! Now hold the THROW button to charge your shot!';
+        } else if (this.tutorialHits === 3) {
+            stepText.textContent = '🎯 Awesome! Keep practicing your aim!';
+        } else if (this.tutorialHits === 5) {
+            stepText.textContent = '🎉 Tutorial Complete! You\'re ready to face the AI!';
+            setTimeout(() => {
+                this.exitTutorial();
+            }, 2000);
+        }
+    }
+
+    exitTutorial() {
+        // Hide tutorial UI
+        document.getElementById('tutorial-ui').classList.add('hidden');
+
+        // Remove tutorial targets
+        this.tutorialTargets.forEach(target => {
+            this.scene.remove(target.mesh);
+            target.mesh.traverse(child => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) child.material.dispose();
+            });
+        });
+        this.tutorialTargets = [];
+
+        // Reset state
+        this.state.reset();
+        this.state.gameStarted = false;
+        this.tutorialHits = 0;
+
+        // Switch to AI mode
+        this.gameMode = 'ai';
+        document.getElementById('start-screen').classList.remove('hidden');
     }
 
     initUI() {
@@ -2314,23 +2458,46 @@ class SnowballGame {
                 continue;
             }
 
-            // Check collision with opponent (AI or remote player)
-            let opponentPosition;
-            if (this.gameMode === 'multiplayer' && this.opponent) {
-                opponentPosition = new THREE.Vector3(
-                    this.opponent.position.x,
-                    1.2,  // Center of character body
-                    this.opponent.position.z
-                );
-            } else {
-                opponentPosition = new THREE.Vector3(
-                    this.ai.position.x,
-                    1.2,  // Center of AI character body
-                    this.ai.position.z
-                );
+            // Check collision with tutorial targets
+            if (this.gameMode === 'tutorial') {
+                for (const target of this.tutorialTargets) {
+                    if (!target.hit) {
+                        const distToTarget = snowball.mesh.position.distanceTo(target.position);
+                        if (distToTarget < 1.2) {
+                            target.hit = true;
+                            this.tutorialHits++;
+                            this.createExplosion(snowball.mesh.position, 1.5);
+                            this.scene.remove(snowball.mesh);
+                            this.snowballs.splice(i, 1);
+                            this.updateTutorialStep();
+
+                            // Make target disappear
+                            this.scene.remove(target.mesh);
+                            continue;
+                        }
+                    }
+                }
+                if (i < 0 || i >= this.snowballs.length) continue;
             }
-            const distToOpponent = snowball.mesh.position.distanceTo(opponentPosition);
-            if (distToOpponent < 1.5) {  // Larger radius to account for full character
+
+            // Check collision with opponent (AI or remote player) - skip in tutorial
+            if (this.gameMode !== 'tutorial') {
+                let opponentPosition;
+                if (this.gameMode === 'multiplayer' && this.opponent) {
+                    opponentPosition = new THREE.Vector3(
+                        this.opponent.position.x,
+                        1.2,  // Center of character body
+                        this.opponent.position.z
+                    );
+                } else {
+                    opponentPosition = new THREE.Vector3(
+                        this.ai.position.x,
+                        1.2,  // Center of AI character body
+                        this.ai.position.z
+                    );
+                }
+                const distToOpponent = snowball.mesh.position.distanceTo(opponentPosition);
+                if (distToOpponent < 1.5) {  // Larger radius to account for full character
                 this.state.addPlayerScore();
                 this.createExplosion(snowball.mesh.position, 1.2);
                 this.scene.remove(snowball.mesh);
@@ -2345,6 +2512,7 @@ class SnowballGame {
                 const winner = this.state.checkWin();
                 if (winner) this.endGame(winner);
                 continue;
+                }
             }
 
             // Check ground collision
