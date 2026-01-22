@@ -1486,7 +1486,8 @@ class SnowballGame {
             dodgeDirection: null,
             isDodging: false,
             stuckTimer: 0,
-            lastPosition: new THREE.Vector3(20, 0, 20)
+            lastPosition: new THREE.Vector3(20, 0, 20),
+            lastHidingSpotChange: 0  // Cooldown timer to prevent jittering
         };
     }
 
@@ -1748,7 +1749,7 @@ class SnowballGame {
 
     createTutorialTargets() {
         // Create single bullseye target in front of player
-        const pos = { x: 0, z: 10 }; // 10 units in front
+        const pos = { x: 0, z: -10 }; // 10 units in front (negative Z is forward)
 
         // Create a simple bullseye target stand
         const targetGroup = new THREE.Group();
@@ -2338,8 +2339,13 @@ class SnowballGame {
             const shouldBeCautious = playerHasSnowball && distanceToPlayer < 15;
 
             // If player gets too close OR we should be cautious, switch hiding spots
-            if (distanceToPlayer < 10 || (shouldBeCautious && Math.random() < 0.3)) {
+            // But use cooldown to prevent jittering
+            const timeSinceLastChange = Date.now() - this.aiState.lastHidingSpotChange;
+            const cooldownPassed = timeSinceLastChange > 1500; // 1.5 second cooldown
+
+            if (cooldownPassed && (distanceToPlayer < 6 || (shouldBeCautious && Math.random() < 0.3))) {
                 this.aiState.currentHidingSpot = this.getRandomHidingSpot();
+                this.aiState.lastHidingSpotChange = Date.now();
             }
 
             // Move to hiding spot
@@ -2451,8 +2457,8 @@ class SnowballGame {
             this.aiState.playerVelocity.clone().multiplyScalar(timeToHit * 0.7) // Reduced prediction by 30%
         );
 
-        // Aim at predicted position (at player center height)
-        const targetHeight = new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT / 2, 0);
+        // Aim at predicted position (at player feet/lower body)
+        const targetHeight = new THREE.Vector3(0, 0.5, 0); // Aim at feet level instead of center
         let direction = predictedPlayerPos.clone().add(targetHeight)
             .sub(this.aiState.position)
             .normalize();
