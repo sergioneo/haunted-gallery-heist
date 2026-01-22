@@ -1736,26 +1736,22 @@ class SnowballGame {
         // Hide score display in tutorial mode
         document.getElementById('score-display').classList.add('hidden');
 
+        // Position player at origin facing the target
+        this.playerPosition.set(0, 0, 0);
+
         // Update tutorial step
         this.updateTutorialStep();
 
-        // Create practice targets (stationary snowmen)
+        // Create practice target (single target)
         this.createTutorialTargets();
     }
 
     createTutorialTargets() {
-        // Create 5 practice targets around the map
-        const targetPositions = [
-            { x: 10, z: 10 },
-            { x: -10, z: 10 },
-            { x: 10, z: -10 },
-            { x: -10, z: -10 },
-            { x: 0, z: 15 }
-        ];
+        // Create single target in front of player
+        const pos = { x: 0, z: 10 }; // 10 units in front
 
-        targetPositions.forEach((pos, index) => {
-            // Create a snowman target (similar to obstacles but marked as tutorial targets)
-            const targetGroup = new THREE.Group();
+        // Create a snowman target
+        const targetGroup = new THREE.Group();
 
             // Base
             const baseGeometry = new THREE.SphereGeometry(0.8, 16, 16);
@@ -1799,15 +1795,17 @@ class SnowballGame {
             targetMarker.rotation.x = 0;
             targetGroup.add(targetMarker);
 
-            targetGroup.position.set(pos.x, 0, pos.z);
-            this.scene.add(targetGroup);
+        targetGroup.position.set(pos.x, 0, pos.z);
+        this.scene.add(targetGroup);
 
-            this.tutorialTargets.push({
-                mesh: targetGroup,
-                position: new THREE.Vector3(pos.x, 1.3, pos.z), // Center of target
-                hit: false
-            });
+        this.tutorialTargets.push({
+            mesh: targetGroup,
+            position: new THREE.Vector3(pos.x, 1.3, pos.z), // Center of target
+            hit: false
         });
+
+        // Store target position for camera aiming
+        this.tutorialTargetPosition = new THREE.Vector3(pos.x, 1.3, pos.z);
     }
 
     updateTutorialStep() {
@@ -1817,12 +1815,16 @@ class SnowballGame {
         hitsDisplay.textContent = this.tutorialHits;
 
         if (this.tutorialHits === 0) {
-            stepText.textContent = 'Move with joystick, find snow piles!';
+            stepText.textContent = 'Find snow pile, then quick tap THROW!';
         } else if (this.tutorialHits === 1) {
-            stepText.textContent = 'Great! Hold THROW button to charge!';
+            stepText.textContent = 'Good! Now HOLD throw for 1 sec!';
+            // Move player back 5 units
+            this.playerPosition.z = -5;
+        } else if (this.tutorialHits === 2) {
+            stepText.textContent = 'Nice! Now HOLD throw for 2 sec!';
+            // Move player back 10 more units
+            this.playerPosition.z = -15;
         } else if (this.tutorialHits === 3) {
-            stepText.textContent = 'Nice! Keep practicing!';
-        } else if (this.tutorialHits === 5) {
             stepText.textContent = '🎉 Complete! Ready for AI!';
             setTimeout(() => {
                 this.exitTutorial();
@@ -1929,11 +1931,16 @@ class SnowballGame {
 
         this.state.hasSnowball = false;
 
-        // Auto-aim at opponent (AI or remote player)
+        // Auto-aim at target
         const throwPosition = this.playerPosition.clone().add(new THREE.Vector3(0, CONFIG.PLAYER_HEIGHT, 0));
-        const targetPos = (this.gameMode === 'multiplayer' && this.opponent)
-            ? this.opponent.position.clone().add(new THREE.Vector3(0, 1, 0))
-            : this.aiState.position.clone().add(new THREE.Vector3(0, 1, 0));
+        let targetPos;
+        if (this.gameMode === 'tutorial' && this.tutorialTargetPosition) {
+            targetPos = this.tutorialTargetPosition.clone();
+        } else if (this.gameMode === 'multiplayer' && this.opponent) {
+            targetPos = this.opponent.position.clone().add(new THREE.Vector3(0, 1, 0));
+        } else {
+            targetPos = this.aiState.position.clone().add(new THREE.Vector3(0, 1, 0));
+        }
         const direction = targetPos.sub(throwPosition).normalize();
 
         // Calculate power multiplier (0.5x to 2.5x based on charge)
@@ -2060,9 +2067,12 @@ class SnowballGame {
             this.playerPosition.z
         );
 
-        // Auto-aim camera at opponent (AI or remote player)
+        // Auto-aim camera at target
         let targetPosition;
-        if (this.gameMode === 'multiplayer' && this.opponent) {
+        if (this.gameMode === 'tutorial' && this.tutorialTargetPosition) {
+            // Aim at tutorial target
+            targetPosition = this.tutorialTargetPosition.clone();
+        } else if (this.gameMode === 'multiplayer' && this.opponent) {
             targetPosition = new THREE.Vector3(
                 this.opponent.position.x,
                 this.opponent.position.y + 1,
@@ -2467,23 +2477,28 @@ class SnowballGame {
                 continue;
             }
 
-            // Check collision with tutorial targets
-            if (this.gameMode === 'tutorial') {
-                for (const target of this.tutorialTargets) {
-                    if (!target.hit) {
-                        const distToTarget = snowball.mesh.position.distanceTo(target.position);
-                        if (distToTarget < 1.2) {
-                            target.hit = true;
-                            this.tutorialHits++;
-                            this.createExplosion(snowball.mesh.position, 1.5);
-                            this.scene.remove(snowball.mesh);
-                            this.snowballs.splice(i, 1);
-                            this.updateTutorialStep();
+            // Check collision with tutorial target
+            if (this.gameMode === 'tutorial' && this.tutorialTargets.length > 0) {
+                const target = this.tutorialTargets[0];
+                if (!target.hit) {
+                    const distToTarget = snowball.mesh.position.distanceTo(target.position);
+                    if (distToTarget < 1.2) {
+                        target.hit = true;
+                        this.tutorialHits++;
+                        this.createExplosion(snowball.mesh.position, 1.5);
+                        this.scene.remove(snowball.mesh);
+                        this.snowballs.splice(i, 1);
 
-                            // Make target disappear
-                            this.scene.remove(target.mesh);
-                            continue;
+                        // Update step (which moves player back) then reset target
+                        this.updateTutorialStep();
+
+                        // Reset target for next hit (unless tutorial complete)
+                        if (this.tutorialHits < 3) {
+                            setTimeout(() => {
+                                target.hit = false;
+                            }, 100);
                         }
+                        continue;
                     }
                 }
                 if (i < 0 || i >= this.snowballs.length) continue;
