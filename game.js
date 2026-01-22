@@ -1747,65 +1747,89 @@ class SnowballGame {
     }
 
     createTutorialTargets() {
-        // Create single target in front of player
+        // Create single bullseye target in front of player
         const pos = { x: 0, z: 10 }; // 10 units in front
 
-        // Create a snowman target
+        // Create a simple bullseye target stand
         const targetGroup = new THREE.Group();
 
-            // Base
-            const baseGeometry = new THREE.SphereGeometry(0.8, 16, 16);
-            const snowMaterial = new THREE.MeshStandardMaterial({
-                color: 0xFFFFFF,
-                roughness: 0.7
-            });
-            const base = new THREE.Mesh(baseGeometry, snowMaterial);
-            base.position.y = 0.8;
-            base.castShadow = true;
-            base.receiveShadow = true;
-            targetGroup.add(base);
+        // Stand pole
+        const poleGeometry = new THREE.CylinderGeometry(0.1, 0.1, 3, 8);
+        const poleMaterial = new THREE.MeshStandardMaterial({
+            color: 0x8B4513,
+            roughness: 0.8
+        });
+        const pole = new THREE.Mesh(poleGeometry, poleMaterial);
+        pole.position.y = 1.5;
+        pole.castShadow = true;
+        targetGroup.add(pole);
 
-            // Middle
-            const middleGeometry = new THREE.SphereGeometry(0.6, 16, 16);
-            const middle = new THREE.Mesh(middleGeometry, snowMaterial);
-            middle.position.y = 1.8;
-            middle.castShadow = true;
-            middle.receiveShadow = true;
-            targetGroup.add(middle);
+        // Bullseye backing (white circle)
+        const backingGeometry = new THREE.CircleGeometry(1.2, 32);
+        const backingMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            side: THREE.DoubleSide
+        });
+        const backing = new THREE.Mesh(backingGeometry, backingMaterial);
+        backing.position.y = 2.5;
+        backing.position.z = 0.05;
+        targetGroup.add(backing);
 
-            // Head with target marker
-            const headGeometry = new THREE.SphereGeometry(0.4, 16, 16);
-            const head = new THREE.Mesh(headGeometry, snowMaterial);
-            head.position.y = 2.6;
-            head.castShadow = true;
-            head.receiveShadow = true;
-            targetGroup.add(head);
+        // Red outer ring
+        const outerRingGeometry = new THREE.RingGeometry(0.8, 1.0, 32);
+        const outerRingMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFF0000,
+            side: THREE.DoubleSide
+        });
+        const outerRing = new THREE.Mesh(outerRingGeometry, outerRingMaterial);
+        outerRing.position.y = 2.5;
+        outerRing.position.z = 0.06;
+        targetGroup.add(outerRing);
 
-            // Target marker (red circle on head)
-            const targetGeometry = new THREE.RingGeometry(0.2, 0.3, 16);
-            const targetMaterial = new THREE.MeshStandardMaterial({
-                color: 0xFF0000,
-                emissive: 0xFF0000,
-                emissiveIntensity: 0.5,
-                side: THREE.DoubleSide
-            });
-            const targetMarker = new THREE.Mesh(targetGeometry, targetMaterial);
-            targetMarker.position.y = 2.6;
-            targetMarker.position.z = 0.41;
-            targetMarker.rotation.x = 0;
-            targetGroup.add(targetMarker);
+        // White middle ring
+        const middleRingGeometry = new THREE.RingGeometry(0.5, 0.8, 32);
+        const middleRingMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            side: THREE.DoubleSide
+        });
+        const middleRing = new THREE.Mesh(middleRingGeometry, middleRingMaterial);
+        middleRing.position.y = 2.5;
+        middleRing.position.z = 0.07;
+        targetGroup.add(middleRing);
+
+        // Red inner ring
+        const innerRingGeometry = new THREE.RingGeometry(0.2, 0.5, 32);
+        const innerRingMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFF0000,
+            side: THREE.DoubleSide
+        });
+        const innerRing = new THREE.Mesh(innerRingGeometry, innerRingMaterial);
+        innerRing.position.y = 2.5;
+        innerRing.position.z = 0.08;
+        targetGroup.add(innerRing);
+
+        // White bullseye center
+        const bullseyeGeometry = new THREE.CircleGeometry(0.2, 32);
+        const bullseyeMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            side: THREE.DoubleSide
+        });
+        const bullseye = new THREE.Mesh(bullseyeGeometry, bullseyeMaterial);
+        bullseye.position.y = 2.5;
+        bullseye.position.z = 0.09;
+        targetGroup.add(bullseye);
 
         targetGroup.position.set(pos.x, 0, pos.z);
         this.scene.add(targetGroup);
 
         this.tutorialTargets.push({
             mesh: targetGroup,
-            position: new THREE.Vector3(pos.x, 1.3, pos.z), // Center of target
+            position: new THREE.Vector3(pos.x, 2.5, pos.z), // Center of target
             hit: false
         });
 
         // Store target position for camera aiming
-        this.tutorialTargetPosition = new THREE.Vector3(pos.x, 1.3, pos.z);
+        this.tutorialTargetPosition = new THREE.Vector3(pos.x, 2.5, pos.z);
     }
 
     updateTutorialStep() {
@@ -1848,11 +1872,15 @@ class SnowballGame {
             });
         });
         this.tutorialTargets = [];
+        this.tutorialTargetPosition = null;
 
         // Reset state
         this.state.reset();
         this.state.gameStarted = false;
         this.tutorialHits = 0;
+
+        // Reset player position to safe starting position
+        this.playerPosition.set(0, 0, 0);
 
         // Switch to AI mode
         this.gameMode = 'ai';
@@ -2027,18 +2055,27 @@ class SnowballGame {
     updatePlayer(delta) {
         if (!this.state.gameStarted || this.state.gameOver) return;
 
-        // Movement from joystick (relative to camera direction to AI)
+        // Movement from joystick (relative to camera direction)
         if (this.joystick.active) {
-            // Calculate direction to AI for relative movement
-            const dirToAI = new THREE.Vector3(
-                this.aiState.position.x - this.playerPosition.x,
-                0,
-                this.aiState.position.z - this.playerPosition.z
-            ).normalize();
+            // Calculate direction to target for relative movement
+            let dirToTarget;
+            if (this.gameMode === 'tutorial' && this.tutorialTargetPosition) {
+                dirToTarget = new THREE.Vector3(
+                    this.tutorialTargetPosition.x - this.playerPosition.x,
+                    0,
+                    this.tutorialTargetPosition.z - this.playerPosition.z
+                ).normalize();
+            } else {
+                dirToTarget = new THREE.Vector3(
+                    this.aiState.position.x - this.playerPosition.x,
+                    0,
+                    this.aiState.position.z - this.playerPosition.z
+                ).normalize();
+            }
 
-            // Forward is towards AI, right is perpendicular
-            const forward = dirToAI;
-            const right = new THREE.Vector3(-dirToAI.z, 0, dirToAI.x);
+            // Forward is towards target, right is perpendicular
+            const forward = dirToTarget;
+            const right = new THREE.Vector3(-dirToTarget.z, 0, dirToTarget.x);
 
             const moveX = this.joystick.currentX / 40;
             const moveZ = -this.joystick.currentY / 40;
