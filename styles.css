@@ -58,6 +58,10 @@ body {
     backdrop-filter: blur(10px);
 }
 
+#score-display.hidden {
+    display: none;
+}
+
 .score-item {
     display: flex;
     flex-direction: column;

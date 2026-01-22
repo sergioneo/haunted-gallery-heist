@@ -1839,15 +1839,11 @@ class SnowballGame {
         hitsDisplay.textContent = this.tutorialHits;
 
         if (this.tutorialHits === 0) {
-            stepText.textContent = 'Find snow pile, then quick tap THROW!';
+            stepText.textContent = 'Find snow pile, quick tap THROW!';
         } else if (this.tutorialHits === 1) {
-            stepText.textContent = 'Good! Now HOLD throw for 1 sec!';
-            // Move player back 5 units
-            this.playerPosition.z = -5;
+            stepText.textContent = 'Good! Move back, HOLD throw 1 sec!';
         } else if (this.tutorialHits === 2) {
-            stepText.textContent = 'Nice! Now HOLD throw for 2 sec!';
-            // Move player back 10 more units
-            this.playerPosition.z = -15;
+            stepText.textContent = 'Nice! Move back more, HOLD 2 sec!';
         } else if (this.tutorialHits === 3) {
             stepText.textContent = '🎉 Complete! Ready for AI!';
             setTimeout(() => {
