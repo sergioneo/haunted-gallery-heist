@@ -374,6 +374,7 @@ class SnowballGame {
         this.tutorialTargets = [];  // Practice targets for tutorial
         this.tutorialHits = 0;  // Track tutorial progress
         this.autoAimEnabled = true;  // Auto-aim toggle state
+        this.autoAimTransitionTime = 0;  // For smooth auto-aim transitions
 
         this.initThree();
         this.initScene();
@@ -1659,19 +1660,14 @@ class SnowballGame {
 
             if (this.autoAimEnabled) {
                 autoAimToggle.classList.add('active');
-                // Keep current camera direction - don't snap to target
-                // The camera will maintain its manual rotation until next movement
+                // Start smooth transition to auto-aim (1 second lerp)
+                this.autoAimTransitionTime = 1.0;
             } else {
                 autoAimToggle.classList.remove('active');
                 // Sync manual rotation to current camera direction
-                // Extract yaw and pitch from current camera orientation
                 const direction = new THREE.Vector3();
                 this.camera.getWorldDirection(direction);
-
-                // Calculate yaw (horizontal rotation)
                 this.cameraRotation.yaw = Math.atan2(direction.x, direction.z);
-
-                // Calculate pitch (vertical rotation)
                 this.cameraRotation.pitch = Math.asin(-direction.y);
             }
         });
@@ -2200,10 +2196,9 @@ class SnowballGame {
 
         // Camera aiming - auto-aim or manual
         if (this.autoAimEnabled) {
-            // Auto-aim at target
+            // Calculate target direction
             let targetPosition;
             if (this.gameMode === 'tutorial' && this.tutorialTargetPosition) {
-                // Aim at tutorial target
                 targetPosition = this.tutorialTargetPosition.clone();
             } else if (this.gameMode === 'multiplayer' && this.opponent) {
                 targetPosition = new THREE.Vector3(
@@ -2214,17 +2209,45 @@ class SnowballGame {
             } else {
                 targetPosition = new THREE.Vector3(
                     this.aiState.position.x,
-                    this.aiState.position.y + 1,  // Aim at AI center
+                    this.aiState.position.y + 1,
                     this.aiState.position.z
                 );
             }
-            this.camera.lookAt(targetPosition);
 
-            // Keep manual rotation synced for smooth toggle transitions
-            const direction = new THREE.Vector3();
-            this.camera.getWorldDirection(direction);
-            this.cameraRotation.yaw = Math.atan2(direction.x, direction.z);
-            this.cameraRotation.pitch = Math.asin(-direction.y);
+            // Smooth transition when auto-aim is first enabled
+            if (this.autoAimTransitionTime > 0) {
+                this.autoAimTransitionTime -= delta;
+                const t = Math.max(0, this.autoAimTransitionTime);
+                const lerpFactor = 1 - t;  // 0 to 1 over transition time
+
+                // Get target rotation
+                const tempCam = this.camera.clone();
+                tempCam.lookAt(targetPosition);
+                const targetDirection = new THREE.Vector3();
+                tempCam.getWorldDirection(targetDirection);
+                const targetYaw = Math.atan2(targetDirection.x, targetDirection.z);
+                const targetPitch = Math.asin(-targetDirection.y);
+
+                // Lerp from current rotation to target
+                this.cameraRotation.yaw += (targetYaw - this.cameraRotation.yaw) * lerpFactor * 3 * delta;
+                this.cameraRotation.pitch += (targetPitch - this.cameraRotation.pitch) * lerpFactor * 3 * delta;
+
+                this.camera.rotation.set(
+                    this.cameraRotation.pitch,
+                    this.cameraRotation.yaw,
+                    0,
+                    'YXZ'
+                );
+            } else {
+                // Normal auto-aim (instant)
+                this.camera.lookAt(targetPosition);
+
+                // Keep manual rotation synced
+                const direction = new THREE.Vector3();
+                this.camera.getWorldDirection(direction);
+                this.cameraRotation.yaw = Math.atan2(direction.x, direction.z);
+                this.cameraRotation.pitch = Math.asin(-direction.y);
+            }
         } else {
             // Manual camera control using rotation
             this.camera.rotation.set(
