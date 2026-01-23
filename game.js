@@ -2199,9 +2199,8 @@ class SnowballGame {
         );
 
         // Camera aiming - auto-aim or manual
-        // Only apply auto-aim when actively moving, otherwise preserve direction
-        if (this.autoAimEnabled && this.joystick.active) {
-            // Auto-aim at target while moving
+        if (this.autoAimEnabled) {
+            // Auto-aim at target
             let targetPosition;
             if (this.gameMode === 'tutorial' && this.tutorialTargetPosition) {
                 // Aim at tutorial target
@@ -2221,13 +2220,13 @@ class SnowballGame {
             }
             this.camera.lookAt(targetPosition);
 
-            // Update manual rotation to match auto-aim for smooth transitions
+            // Keep manual rotation synced for smooth toggle transitions
             const direction = new THREE.Vector3();
             this.camera.getWorldDirection(direction);
             this.cameraRotation.yaw = Math.atan2(direction.x, direction.z);
             this.cameraRotation.pitch = Math.asin(-direction.y);
         } else {
-            // Manual camera control using rotation (or stationary with auto-aim on)
+            // Manual camera control using rotation
             this.camera.rotation.set(
                 this.cameraRotation.pitch,
                 this.cameraRotation.yaw,
