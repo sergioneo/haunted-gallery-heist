@@ -1656,10 +1656,23 @@ class SnowballGame {
         autoAimToggle.addEventListener('click', (e) => {
             e.preventDefault();
             this.autoAimEnabled = !this.autoAimEnabled;
+
             if (this.autoAimEnabled) {
                 autoAimToggle.classList.add('active');
+                // Keep current camera direction - don't snap to target
+                // The camera will maintain its manual rotation until next movement
             } else {
                 autoAimToggle.classList.remove('active');
+                // Sync manual rotation to current camera direction
+                // Extract yaw and pitch from current camera orientation
+                const direction = new THREE.Vector3();
+                this.camera.getWorldDirection(direction);
+
+                // Calculate yaw (horizontal rotation)
+                this.cameraRotation.yaw = Math.atan2(direction.x, direction.z);
+
+                // Calculate pitch (vertical rotation)
+                this.cameraRotation.pitch = Math.asin(-direction.y);
             }
         });
 
@@ -2186,8 +2199,9 @@ class SnowballGame {
         );
 
         // Camera aiming - auto-aim or manual
-        if (this.autoAimEnabled) {
-            // Auto-aim at target
+        // Only apply auto-aim when actively moving, otherwise preserve direction
+        if (this.autoAimEnabled && this.joystick.active) {
+            // Auto-aim at target while moving
             let targetPosition;
             if (this.gameMode === 'tutorial' && this.tutorialTargetPosition) {
                 // Aim at tutorial target
@@ -2206,8 +2220,14 @@ class SnowballGame {
                 );
             }
             this.camera.lookAt(targetPosition);
+
+            // Update manual rotation to match auto-aim for smooth transitions
+            const direction = new THREE.Vector3();
+            this.camera.getWorldDirection(direction);
+            this.cameraRotation.yaw = Math.atan2(direction.x, direction.z);
+            this.cameraRotation.pitch = Math.asin(-direction.y);
         } else {
-            // Manual camera control using rotation
+            // Manual camera control using rotation (or stationary with auto-aim on)
             this.camera.rotation.set(
                 this.cameraRotation.pitch,
                 this.cameraRotation.yaw,
