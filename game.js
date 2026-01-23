@@ -373,6 +373,7 @@ class SnowballGame {
         this.positionUpdateThrottle = 0;  // For throttling position updates
         this.tutorialTargets = [];  // Practice targets for tutorial
         this.tutorialHits = 0;  // Track tutorial progress
+        this.autoAimEnabled = true;  // Auto-aim toggle state
 
         this.initThree();
         this.initScene();
@@ -610,60 +611,68 @@ class SnowballGame {
             });
         });
 
-        // House
+        // REDESIGNED MAP: Smaller arena layout (40x40) with strategic cover
+        // Map is now a structured battleground with clear lanes and cover positions
+
+        // Corner strongholds - houses with cover
         this.createHouse(-15, -15);
-        // Add house as obstacle (tighter radius)
         this.obstacles.push({
             position: new THREE.Vector3(-15, 0, -15),
-            radius: 5  // Reduced from 7 for better gameplay
+            radius: 5
         });
 
-        // Bushes
+        this.createHouse(15, 15);
+        this.obstacles.push({
+            position: new THREE.Vector3(15, 0, 15),
+            radius: 5
+        });
+
+        // Mid-lane tree clusters (provide vertical cover)
+        const treePositions = [
+            { x: -12, z: 0 },  // Left mid
+            { x: 12, z: 0 },   // Right mid
+            { x: 0, z: -12 },  // Top mid
+            { x: 0, z: 12 }    // Bottom mid
+        ];
+        treePositions.forEach(pos => {
+            this.createTree(pos.x, pos.z);
+            this.obstacles.push({
+                position: new THREE.Vector3(pos.x, 0, pos.z),
+                radius: 0.8
+            });
+        });
+
+        // Strategic bush clusters (low cover positions)
         const bushPositions = [
-            { x: 10, z: 8 },
-            { x: -5, z: -5 },
-            { x: 15, z: -10 },
-            { x: -12, z: 10 }
+            { x: -15, z: 12 },   // Top-left
+            { x: 15, z: -12 },   // Bottom-right
+            { x: -6, z: -8 },    // Inner top-left
+            { x: 6, z: 8 }       // Inner bottom-right
         ];
         bushPositions.forEach((pos, i) => {
             const color = i % 2 === 0 ? 0x228B22 : 0x2F4F2F;
             this.createBush(pos.x, pos.z, color);
             this.obstacles.push({
                 position: new THREE.Vector3(pos.x, 0, pos.z),
-                radius: 1.3  // Reduced from 2 for tighter collision
+                radius: 1.3
             });
         });
 
-        // Trees
-        const treePositions = [
-            { x: 18, z: 15 },
-            { x: -18, z: 12 },
-            { x: 12, z: -18 },
-            { x: -15, z: -18 }
-        ];
-        treePositions.forEach(pos => {
-            this.createTree(pos.x, pos.z);
-            this.obstacles.push({
-                position: new THREE.Vector3(pos.x, 0, pos.z),
-                radius: 0.8  // Reduced from 2 for trunk-only collision
-            });
-        });
-
-        // Add decorative snow piles around the map
+        // Snow piles at strategic positions (collectible + cover)
         this.createSnowPiles();
 
-        // Add rocks scattered around the map
+        // Perimeter rocks for arena boundary feel
         this.createRocks();
 
-        // Add wooden fence sections
+        // Wooden fences creating lanes
         this.createFences();
 
-        // Add snow-covered logs
+        // Logs as low barriers
         this.createLogs();
 
-        // Walls (invisible boundaries)
+        // Smaller arena boundaries (40x40)
         this.boundaries = [
-            { min: new THREE.Vector3(-48, 0, -48), max: new THREE.Vector3(48, 10, 48) }
+            { min: new THREE.Vector3(-32, 0, -32), max: new THREE.Vector3(32, 10, 32) }
         ];
 
         // AI Opponent
@@ -720,20 +729,15 @@ class SnowballGame {
     }
 
     createSnowPiles() {
-        // Add LARGE collectible snow hills/piles
+        // Strategic snow pile positions in arena layout
         const collectibleHills = [
-            { x: -22, z: -5, size: 1.8 },
-            { x: 16, z: 3, size: 1.6 },
-            { x: -3, z: 18, size: 2.0 },
-            { x: 22, z: -15, size: 1.7 },
-            { x: -18, z: 20, size: 1.9 },
-            { x: 6, z: -20, size: 1.5 },
-            { x: -25, z: -20, size: 2.1 },
-            { x: 25, z: 20, size: 1.8 },
-            { x: -12, z: -15, size: 1.6 },
-            { x: 15, z: -8, size: 1.7 },
-            { x: -20, z: 8, size: 1.9 },
-            { x: 18, z: 18, size: 1.6 }
+            { x: 0, z: 0, size: 2.0 },      // Center pile (high value, high risk)
+            { x: -18, z: -8, size: 1.7 },   // Near top-left house
+            { x: 18, z: 8, size: 1.7 },     // Near bottom-right house
+            { x: -8, z: 15, size: 1.6 },    // Bottom-left quadrant
+            { x: 8, z: -15, size: 1.6 },    // Top-right quadrant
+            { x: -20, z: 18, size: 1.8 },   // Bottom-left corner
+            { x: 20, z: -18, size: 1.8 }    // Top-right corner
         ];
 
         const snowMaterial = new THREE.MeshStandardMaterial({
@@ -804,18 +808,18 @@ class SnowballGame {
     }
 
     createRocks() {
-        // Add rocks scattered around the map for visual interest
+        // Rocks positioned at perimeter to define arena boundaries
         const rockPositions = [
-            { x: -8, z: 8, size: 0.6 },
-            { x: 3, z: -7, size: 0.8 },
-            { x: -20, z: -10, size: 0.5 },
-            { x: 18, z: 5, size: 0.7 },
-            { x: -12, z: -20, size: 0.9 },
-            { x: 22, z: -18, size: 0.6 },
-            { x: -25, z: 15, size: 0.8 },
-            { x: 14, z: 15, size: 0.5 },
-            { x: 6, z: -18, size: 0.7 },
-            { x: -18, z: 6, size: 0.6 }
+            // Corner markers
+            { x: -28, z: -28, size: 0.9 },
+            { x: 28, z: -28, size: 0.9 },
+            { x: -28, z: 28, size: 0.9 },
+            { x: 28, z: 28, size: 0.9 },
+            // Side markers
+            { x: -28, z: 0, size: 0.7 },
+            { x: 28, z: 0, size: 0.7 },
+            { x: 0, z: -28, size: 0.7 },
+            { x: 0, z: 28, size: 0.7 }
         ];
 
         rockPositions.forEach(pos => {
@@ -885,14 +889,19 @@ class SnowballGame {
             roughness: 0.9
         });
 
-        // Fence along one side of the map
+        // Fences creating lanes and visual boundaries in arena
         const fenceSegments = [
-            { x: -30, z: -25, rotation: 0, length: 5 },
-            { x: -25, z: -25, rotation: 0, length: 5 },
-            { x: -20, z: -25, rotation: 0, length: 5 },
-            { x: 25, z: 25, rotation: Math.PI / 2, length: 5 },
-            { x: 25, z: 20, rotation: Math.PI / 2, length: 5 },
-            { x: 25, z: 15, rotation: Math.PI / 2, length: 5 }
+            // Top perimeter
+            { x: -20, z: -26, rotation: 0, length: 4 },
+            { x: 0, z: -26, rotation: 0, length: 4 },
+            { x: 20, z: -26, rotation: 0, length: 4 },
+            // Bottom perimeter
+            { x: -20, z: 26, rotation: 0, length: 4 },
+            { x: 0, z: 26, rotation: 0, length: 4 },
+            { x: 20, z: 26, rotation: 0, length: 4 },
+            // Side barriers
+            { x: -26, z: -10, rotation: Math.PI / 2, length: 4 },
+            { x: 26, z: 10, rotation: Math.PI / 2, length: 4 }
         ];
 
         fenceSegments.forEach(segment => {
@@ -930,12 +939,12 @@ class SnowballGame {
     }
 
     createLogs() {
-        // Add fallen logs with snow on them
+        // Logs positioned as low barriers for tactical cover
         const logPositions = [
-            { x: -18, z: -3, rotation: 0.5, length: 4 },
-            { x: 12, z: -12, rotation: 1.2, length: 3.5 },
-            { x: -6, z: 15, rotation: 0.8, length: 3 },
-            { x: 20, z: -8, rotation: 2.1, length: 3.8 }
+            { x: -8, z: -16, rotation: 0, length: 5 },      // Top-left lane
+            { x: 8, z: 16, rotation: 0, length: 5 },        // Bottom-right lane
+            { x: -20, z: 6, rotation: Math.PI / 2, length: 4 },  // Left side
+            { x: 20, z: -6, rotation: Math.PI / 2, length: 4 }   // Right side
         ];
 
         logPositions.forEach(pos => {
@@ -1510,29 +1519,29 @@ class SnowballGame {
         pompom.position.set(0, 2.4, 0);
         this.aiCharacter.add(pompom);
 
-        this.aiCharacter.position.set(20, 0, 20);
+        this.aiCharacter.position.set(18, 0, 18);
         this.scene.add(this.aiCharacter);
 
         // Store reference for easy access
         this.ai = this.aiCharacter;
 
-        // AI state
+        // AI state (updated for smaller arena)
         this.aiState = {
-            position: new THREE.Vector3(20, 0, 20),
+            position: new THREE.Vector3(18, 0, 18),
             hasSnowball: false,
             targetSnowPatch: null,
             lastShot: 0,
             moveDirection: new THREE.Vector3(),
             currentHidingSpot: null,
             hidingSpots: [
-                new THREE.Vector3(-15, 0, -15),  // Near house
-                new THREE.Vector3(18, 0, 15),    // Near tree
-                new THREE.Vector3(-18, 0, 12),   // Near tree
-                new THREE.Vector3(12, 0, -18),   // Near tree
-                new THREE.Vector3(-25, 0, -20),  // Behind snow hill
-                new THREE.Vector3(25, 0, 20),    // Behind snow hill
-                new THREE.Vector3(16, 0, 3),     // Behind snow hill
-                new THREE.Vector3(-20, 0, 8)     // Behind snow hill
+                new THREE.Vector3(-15, 0, -15),  // Near top-left house
+                new THREE.Vector3(15, 0, 15),    // Near bottom-right house
+                new THREE.Vector3(-12, 0, 0),    // Behind left mid tree
+                new THREE.Vector3(12, 0, 0),     // Behind right mid tree
+                new THREE.Vector3(0, 0, -12),    // Behind top mid tree
+                new THREE.Vector3(0, 0, 12),     // Behind bottom mid tree
+                new THREE.Vector3(-18, 0, 8),    // Near bottom-left snow pile
+                new THREE.Vector3(18, 0, -8)     // Near top-right snow pile
             ],
             // Smart AI tracking
             lastPlayerPosition: this.playerPosition.clone(),
@@ -1540,12 +1549,18 @@ class SnowballGame {
             dodgeDirection: null,
             isDodging: false,
             stuckTimer: 0,
-            lastPosition: new THREE.Vector3(20, 0, 20),
+            lastPosition: new THREE.Vector3(18, 0, 18),
             lastHidingSpotChange: 0  // Cooldown timer to prevent jittering
         };
     }
 
     initControls() {
+        // Camera rotation state (for manual control when auto-aim is off)
+        this.cameraRotation = {
+            yaw: 0,  // Horizontal rotation
+            pitch: 0  // Vertical rotation (limited)
+        };
+
         // Joystick
         this.joystick = {
             active: false,
@@ -1635,6 +1650,63 @@ class SnowballGame {
         throwBtn.addEventListener('touchcancel', endCharge);
         throwBtn.addEventListener('mousedown', startCharge);
         throwBtn.addEventListener('mouseup', endCharge);
+
+        // Auto-aim toggle button
+        const autoAimToggle = document.getElementById('auto-aim-toggle');
+        autoAimToggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.autoAimEnabled = !this.autoAimEnabled;
+            if (this.autoAimEnabled) {
+                autoAimToggle.classList.add('active');
+            } else {
+                autoAimToggle.classList.remove('active');
+            }
+        });
+
+        // Camera drag controls (for manual aiming when auto-aim is off)
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+        let isDragging = false;
+
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (!this.autoAimEnabled && e.touches.length === 1) {
+                // Only handle if not touching joystick or buttons
+                const touch = e.touches[0];
+                const isJoystick = joystickContainer.contains(e.target);
+                const isButton = e.target.closest('.action-btn');
+                if (!isJoystick && !isButton) {
+                    isDragging = true;
+                    lastTouchX = touch.clientX;
+                    lastTouchY = touch.clientY;
+                }
+            }
+        });
+
+        this.canvas.addEventListener('touchmove', (e) => {
+            if (isDragging && !this.autoAimEnabled) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const deltaX = touch.clientX - lastTouchX;
+                const deltaY = touch.clientY - lastTouchY;
+
+                // Update camera rotation
+                this.cameraRotation.yaw -= deltaX * 0.003;  // Horizontal
+                this.cameraRotation.pitch -= deltaY * 0.003;  // Vertical
+
+                // Clamp pitch to prevent flipping
+                this.cameraRotation.pitch = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, this.cameraRotation.pitch));
+
+                lastTouchX = touch.clientX;
+                lastTouchY = touch.clientY;
+            }
+        });
+
+        const endDrag = () => {
+            isDragging = false;
+        };
+
+        this.canvas.addEventListener('touchend', endDrag);
+        this.canvas.addEventListener('touchcancel', endDrag);
     }
 
     initModeSelection() {
@@ -2113,25 +2185,36 @@ class SnowballGame {
             this.playerPosition.z
         );
 
-        // Auto-aim camera at target
-        let targetPosition;
-        if (this.gameMode === 'tutorial' && this.tutorialTargetPosition) {
-            // Aim at tutorial target
-            targetPosition = this.tutorialTargetPosition.clone();
-        } else if (this.gameMode === 'multiplayer' && this.opponent) {
-            targetPosition = new THREE.Vector3(
-                this.opponent.position.x,
-                this.opponent.position.y + 1,
-                this.opponent.position.z
-            );
+        // Camera aiming - auto-aim or manual
+        if (this.autoAimEnabled) {
+            // Auto-aim at target
+            let targetPosition;
+            if (this.gameMode === 'tutorial' && this.tutorialTargetPosition) {
+                // Aim at tutorial target
+                targetPosition = this.tutorialTargetPosition.clone();
+            } else if (this.gameMode === 'multiplayer' && this.opponent) {
+                targetPosition = new THREE.Vector3(
+                    this.opponent.position.x,
+                    this.opponent.position.y + 1,
+                    this.opponent.position.z
+                );
+            } else {
+                targetPosition = new THREE.Vector3(
+                    this.aiState.position.x,
+                    this.aiState.position.y + 1,  // Aim at AI center
+                    this.aiState.position.z
+                );
+            }
+            this.camera.lookAt(targetPosition);
         } else {
-            targetPosition = new THREE.Vector3(
-                this.aiState.position.x,
-                this.aiState.position.y + 1,  // Aim at AI center
-                this.aiState.position.z
+            // Manual camera control using rotation
+            this.camera.rotation.set(
+                this.cameraRotation.pitch,
+                this.cameraRotation.yaw,
+                0,
+                'YXZ'
             );
         }
-        this.camera.lookAt(targetPosition);
 
         // Movement from joystick (relative to camera's actual facing direction)
         if (this.joystick.active) {
@@ -2558,6 +2641,27 @@ class SnowballGame {
                 continue;
             }
 
+            // Check collision with AI/opponent snowballs (mid-air collision)
+            let snowballCollided = false;
+            for (let j = this.aiSnowballs.length - 1; j >= 0; j--) {
+                const aiSnowball = this.aiSnowballs[j];
+                const distBetweenSnowballs = snowball.mesh.position.distanceTo(aiSnowball.mesh.position);
+                if (distBetweenSnowballs < 0.6) {  // Collision radius
+                    // Create explosion at collision point
+                    const collisionPoint = snowball.mesh.position.clone().add(aiSnowball.mesh.position).multiplyScalar(0.5);
+                    this.createExplosion(collisionPoint, 1.0);
+
+                    // Remove both snowballs
+                    this.scene.remove(snowball.mesh);
+                    this.scene.remove(aiSnowball.mesh);
+                    this.snowballs.splice(i, 1);
+                    this.aiSnowballs.splice(j, 1);
+                    snowballCollided = true;
+                    break;
+                }
+            }
+            if (snowballCollided) continue;
+
             // Check collision with tutorial target
             if (this.gameMode === 'tutorial' && this.tutorialTargets.length > 0) {
                 const target = this.tutorialTargets[0];
@@ -2628,9 +2732,9 @@ class SnowballGame {
                 continue;
             }
 
-            // Remove if lifetime expired or out of bounds
-            if (snowball.lifetime <= 0 || Math.abs(snowball.mesh.position.x) > 50 ||
-                Math.abs(snowball.mesh.position.z) > 50) {
+            // Remove if lifetime expired or out of bounds (smaller arena)
+            if (snowball.lifetime <= 0 || Math.abs(snowball.mesh.position.x) > 35 ||
+                Math.abs(snowball.mesh.position.z) > 35) {
                 this.scene.remove(snowball.mesh);
                 this.snowballs.splice(i, 1);
             }
@@ -2682,9 +2786,9 @@ class SnowballGame {
                 continue;
             }
 
-            // Remove if lifetime expired or out of bounds
-            if (snowball.lifetime <= 0 || Math.abs(snowball.mesh.position.x) > 50 ||
-                Math.abs(snowball.mesh.position.z) > 50) {
+            // Remove if lifetime expired or out of bounds (smaller arena)
+            if (snowball.lifetime <= 0 || Math.abs(snowball.mesh.position.x) > 35 ||
+                Math.abs(snowball.mesh.position.z) > 35) {
                 this.scene.remove(snowball.mesh);
                 this.aiSnowballs.splice(i, 1);
             }
@@ -2817,8 +2921,8 @@ class SnowballGame {
         this.cameraRotation.pitch = 0;
 
         // Reset AI
-        this.aiState.position.set(20, 0, 20);
-        this.ai.position.set(20, 0, 20);
+        this.aiState.position.set(18, 0, 18);
+        this.ai.position.set(18, 0, 18);
         this.aiState.hasSnowball = false;
         this.aiState.targetSnowPatch = null;
         this.aiState.lastShot = 0;
