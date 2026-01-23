@@ -2052,49 +2052,7 @@ class SnowballGame {
     updatePlayer(delta) {
         if (!this.state.gameStarted || this.state.gameOver) return;
 
-        // Movement from joystick (relative to camera direction)
-        if (this.joystick.active) {
-            // Calculate direction to target for relative movement
-            let dirToTarget;
-            if (this.gameMode === 'tutorial' && this.tutorialTargetPosition) {
-                dirToTarget = new THREE.Vector3(
-                    this.tutorialTargetPosition.x - this.playerPosition.x,
-                    0,
-                    this.tutorialTargetPosition.z - this.playerPosition.z
-                ).normalize();
-            } else {
-                dirToTarget = new THREE.Vector3(
-                    this.aiState.position.x - this.playerPosition.x,
-                    0,
-                    this.aiState.position.z - this.playerPosition.z
-                ).normalize();
-            }
-
-            // Forward is towards target, right is perpendicular
-            const forward = dirToTarget;
-            const right = new THREE.Vector3(-dirToTarget.z, 0, dirToTarget.x);
-
-            const moveX = this.joystick.currentX / 40;
-            const moveZ = -this.joystick.currentY / 40;
-
-            const movement = new THREE.Vector3();
-            movement.add(forward.clone().multiplyScalar(moveZ));
-            movement.add(right.clone().multiplyScalar(moveX));
-
-            if (movement.length() > 0) {
-                movement.normalize();
-                const newPosition = this.playerPosition.clone().add(
-                    movement.multiplyScalar(CONFIG.PLAYER_SPEED * delta)
-                );
-
-                // Check collisions
-                if (!this.checkCollision(newPosition)) {
-                    this.playerPosition.copy(newPosition);
-                }
-            }
-        }
-
-        // Update camera position
+        // Update camera position first
         this.camera.position.set(
             this.playerPosition.x,
             this.playerPosition.y + CONFIG.PLAYER_HEIGHT,
@@ -2120,6 +2078,36 @@ class SnowballGame {
             );
         }
         this.camera.lookAt(targetPosition);
+
+        // Movement from joystick (relative to camera's actual facing direction)
+        if (this.joystick.active) {
+            // Get camera's forward direction from its rotation
+            const cameraDirection = new THREE.Vector3();
+            this.camera.getWorldDirection(cameraDirection);
+
+            // Project to horizontal plane (ignore Y)
+            const forward = new THREE.Vector3(cameraDirection.x, 0, cameraDirection.z).normalize();
+            const right = new THREE.Vector3(-forward.z, 0, forward.x);
+
+            const moveX = this.joystick.currentX / 40;
+            const moveZ = -this.joystick.currentY / 40;
+
+            const movement = new THREE.Vector3();
+            movement.add(forward.clone().multiplyScalar(moveZ));
+            movement.add(right.clone().multiplyScalar(moveX));
+
+            if (movement.length() > 0) {
+                movement.normalize();
+                const newPosition = this.playerPosition.clone().add(
+                    movement.multiplyScalar(CONFIG.PLAYER_SPEED * delta)
+                );
+
+                // Check collisions
+                if (!this.checkCollision(newPosition)) {
+                    this.playerPosition.copy(newPosition);
+                }
+            }
+        }
 
         // Check if near snow
         this.state.nearSnow = false;
