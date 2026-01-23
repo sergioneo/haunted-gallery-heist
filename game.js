@@ -736,47 +736,68 @@ class SnowballGame {
             { x: 18, z: 18, size: 1.6 }
         ];
 
-        collectibleHills.forEach(pos => {
-            // Main hill - larger and more prominent
-            const hillGeometry = new THREE.SphereGeometry(pos.size, 16, 16);
-            const hillMaterial = new THREE.MeshStandardMaterial({
-                color: 0xFFFFFF,
-                roughness: 0.9
-            });
-            const hill = new THREE.Mesh(hillGeometry, hillMaterial);
-            hill.position.set(pos.x, pos.size * 0.6, pos.z);
-            hill.scale.set(1.2, 0.7, 1.2);  // Make it wider and flatter
-            hill.castShadow = true;
-            hill.receiveShadow = true;
-            this.scene.add(hill);
+        const snowMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            roughness: 0.95,
+            metalness: 0.05
+        });
 
-            // Add layer on top for extra height
-            const topLayer = new THREE.Mesh(
-                new THREE.SphereGeometry(pos.size * 0.6, 12, 12),
-                hillMaterial
-            );
-            topLayer.position.set(pos.x, pos.size * 0.9, pos.z);
-            topLayer.scale.set(1, 0.6, 1);
-            topLayer.castShadow = true;
-            this.scene.add(topLayer);
+        collectibleHills.forEach(pos => {
+            // Create organic snow pile using multiple overlapping icosahedrons
+            const pileGroup = new THREE.Group();
+
+            // Base layer - largest mound sitting on ground
+            const baseGeometry = new THREE.IcosahedronGeometry(pos.size, 1);
+            const baseMound = new THREE.Mesh(baseGeometry, snowMaterial);
+            baseMound.position.set(0, pos.size * 0.4, 0); // Sits partially in ground
+            baseMound.scale.set(1.3, 0.6, 1.3); // Wide and low
+            baseMound.castShadow = true;
+            baseMound.receiveShadow = true;
+            pileGroup.add(baseMound);
+
+            // Add 3-5 smaller mounds on top for organic look
+            const numMounds = 3 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < numMounds; i++) {
+                const moundSize = pos.size * (0.3 + Math.random() * 0.4);
+                const moundGeometry = new THREE.IcosahedronGeometry(moundSize, 1);
+                const mound = new THREE.Mesh(moundGeometry, snowMaterial);
+
+                // Position randomly on top of base
+                const angle = (i / numMounds) * Math.PI * 2 + Math.random() * 0.5;
+                const radius = pos.size * 0.4 * Math.random();
+                mound.position.set(
+                    Math.cos(angle) * radius,
+                    pos.size * 0.5 + Math.random() * 0.3,
+                    Math.sin(angle) * radius
+                );
+                mound.scale.set(
+                    0.9 + Math.random() * 0.3,
+                    0.7 + Math.random() * 0.2,
+                    0.9 + Math.random() * 0.3
+                );
+                mound.castShadow = true;
+                pileGroup.add(mound);
+            }
+
+            pileGroup.position.set(pos.x, 0, pos.z);
+            this.scene.add(pileGroup);
 
             // Add this hill as a collectible snow source
             this.snowPatches.push(new THREE.Vector3(pos.x, 0, pos.z));
 
-            // Add smaller piles around for detail
+            // Add smaller scattered piles around for detail
             for (let i = 0; i < 4; i++) {
                 const angle = (i / 4) * Math.PI * 2;
-                const radius = pos.size * 1.5;
-                const smallPile = new THREE.Mesh(
-                    new THREE.SphereGeometry(pos.size * 0.3, 8, 8),
-                    hillMaterial
-                );
+                const radius = pos.size * 1.8;
+                const smallPileGeometry = new THREE.IcosahedronGeometry(pos.size * 0.25, 0);
+                const smallPile = new THREE.Mesh(smallPileGeometry, snowMaterial);
                 smallPile.position.set(
                     pos.x + Math.cos(angle) * radius,
-                    pos.size * 0.15,
+                    pos.size * 0.12,
                     pos.z + Math.sin(angle) * radius
                 );
-                smallPile.scale.y = 0.5;
+                smallPile.scale.set(1.1, 0.6, 1.1);
+                smallPile.castShadow = true;
                 this.scene.add(smallPile);
             }
         });
@@ -1246,29 +1267,41 @@ class SnowballGame {
     }
 
     createBush(x, z, color) {
-        // Base bush
-        const bushGeometry = new THREE.SphereGeometry(1.5, 8, 8);
+        // Base bush - more organic shape
+        const bushGeometry = new THREE.IcosahedronGeometry(1.5, 1);
         const bushMaterial = new THREE.MeshStandardMaterial({
             color: color,
-            roughness: 0.9
+            roughness: 0.95,
+            flatShading: true
         });
         const bush = new THREE.Mesh(bushGeometry, bushMaterial);
         bush.position.set(x, 1, z);
-        bush.scale.y = 0.8;
+        bush.scale.set(1, 0.8, 1);
         bush.castShadow = true;
         bush.receiveShadow = true;
         this.scene.add(bush);
 
-        // Snow cap on bush
-        const snowCapGeometry = new THREE.SphereGeometry(1.6, 8, 8);
-        const snowCapMaterial = new THREE.MeshStandardMaterial({
+        // Organic snow dusting on top - multiple small mounds
+        const snowMaterial = new THREE.MeshStandardMaterial({
             color: 0xFFFFFF,
-            roughness: 0.9
+            roughness: 0.95
         });
-        const snowCap = new THREE.Mesh(snowCapGeometry, snowCapMaterial);
-        snowCap.position.set(x, 1.5, z);
-        snowCap.scale.set(1, 0.3, 1);
-        this.scene.add(snowCap);
+
+        for (let i = 0; i < 3; i++) {
+            const angle = (i / 3) * Math.PI * 2 + Math.random() * 0.5;
+            const radius = 0.3 + Math.random() * 0.4;
+            const snowMound = new THREE.Mesh(
+                new THREE.IcosahedronGeometry(0.4 + Math.random() * 0.2, 0),
+                snowMaterial
+            );
+            snowMound.position.set(
+                x + Math.cos(angle) * radius,
+                1.3 + Math.random() * 0.2,
+                z + Math.sin(angle) * radius
+            );
+            snowMound.scale.set(1, 0.6, 1);
+            this.scene.add(snowMound);
+        }
     }
 
     createTree(x, z) {
@@ -1286,6 +1319,10 @@ class SnowballGame {
 
         // Multi-layer pine foliage (3 tiers)
         const foliageColors = [0x1a5a1a, 0x228B22, 0x2d692d];
+        const snowMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            roughness: 0.95
+        });
 
         for (let i = 0; i < 3; i++) {
             const foliageGeometry = new THREE.ConeGeometry(2.8 - i * 0.6, 2.5, 8);
@@ -1299,18 +1336,27 @@ class SnowballGame {
             foliage.receiveShadow = true;
             this.scene.add(foliage);
 
-            // Snow on each tier
-            const snowGeometry = new THREE.ConeGeometry(2.9 - i * 0.6, 0.3, 8);
-            const snowMaterial = new THREE.MeshStandardMaterial({
-                color: 0xFFFFFF,
-                roughness: 0.9
-            });
-            const snow = new THREE.Mesh(snowGeometry, snowMaterial);
-            snow.position.set(x, 6.6 + i * 1.5, z);
-            this.scene.add(snow);
+            // Organic snow on branches - scattered small mounds
+            const numSnowMounds = 4 + Math.floor(Math.random() * 3);
+            const tierRadius = 2.8 - i * 0.6;
+            for (let j = 0; j < numSnowMounds; j++) {
+                const angle = (j / numSnowMounds) * Math.PI * 2 + Math.random() * 0.3;
+                const distance = tierRadius * (0.3 + Math.random() * 0.5);
+                const snowMound = new THREE.Mesh(
+                    new THREE.IcosahedronGeometry(0.2 + Math.random() * 0.15, 0),
+                    snowMaterial
+                );
+                snowMound.position.set(
+                    x + Math.cos(angle) * distance,
+                    6.4 + i * 1.5 + Math.random() * 0.2,
+                    z + Math.sin(angle) * distance
+                );
+                snowMound.scale.set(1.2, 0.7, 1.2);
+                this.scene.add(snowMound);
+            }
         }
 
-        // Tree top (star point)
+        // Tree top with snow dusting
         const topGeometry = new THREE.ConeGeometry(0.3, 1, 8);
         const topMaterial = new THREE.MeshStandardMaterial({
             color: 0x1a5a1a
@@ -1319,6 +1365,14 @@ class SnowballGame {
         top.position.set(x, 10, z);
         top.castShadow = true;
         this.scene.add(top);
+
+        // Small snow cap on top
+        const topSnow = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(0.15, 0),
+            snowMaterial
+        );
+        topSnow.position.set(x, 10.4, z);
+        this.scene.add(topSnow);
     }
 
     createAI() {
